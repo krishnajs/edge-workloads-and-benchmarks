@@ -31,7 +31,7 @@ def fetch_chartjs() -> str:
         raise ValueError(f"Refusing to fetch from non-HTTPS URL: {CHARTJS_URL}")
     print(f"[ Info ] Downloading Chart.js from {CHARTJS_URL}")
     req = urllib.request.Request(CHARTJS_URL)
-    with urllib.request.urlopen(req, timeout=30) as resp:  # noqa: S310
+    with urllib.request.urlopen(req, timeout=30) as resp:  # nosec B310
         js = resp.read().decode("utf-8")
     CHARTJS_CACHE.write_text(js, encoding="utf-8")
     return js
