@@ -1,0 +1,54 @@
+#!/bin/bash
+
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+# Download a single COCO val2017 image and resize to standard VLM input
+# resolutions for use as benchmark collateral.
+
+set -Eeuo pipefail
+
+basedir="$(realpath "$(dirname -- "$0")")"
+imgdir="${basedir}/../../collateral/media/images"
+mkdir -p "${imgdir}"
+
+# Colors (suppressed when stdout is not a terminal)
+if [ -t 1 ]; then
+    RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[0;33m'; CYAN='\033[0;36m'; NC='\033[0m'
+else
+    RED=''; GREEN=''; YELLOW=''; CYAN=''; NC=''
+fi
+
+# A representative COCO val2017 scene (bus + people, good object diversity)
+COCO_IMAGE_URL="http://images.cocodataset.org/val2017/000000000139.jpg"
+COCO_ORIGINAL="${imgdir}/coco_original.jpg"
+
+# Download the source image
+if [[ -f "${COCO_ORIGINAL}" ]]; then
+    echo -e "${CYAN}[ Info ]${NC} COCO source image already exists, skipping download."
+else
+    echo -e "${CYAN}[ Info ]${NC} Downloading COCO val2017 image..."
+    wget -q --show-progress --tries=5 --timeout=30 -O "${COCO_ORIGINAL}.part" "${COCO_IMAGE_URL}"
+    mv -f "${COCO_ORIGINAL}.part" "${COCO_ORIGINAL}"
+fi
+
+# Resize to standard VLM input resolutions
+SIZES=("224x224" "448x448" "640x640" "1080x1920")
+
+for size in "${SIZES[@]}"; do
+    outfile="${imgdir}/coco_${size}.jpg"
+    if [[ -f "${outfile}" ]]; then
+        echo -e "${CYAN}[ Info ]${NC} ${outfile##*/} already exists, skipping."
+        continue
+    fi
+    echo -e "${CYAN}[ Info ]${NC} Resizing to ${size}..."
+    python3 -c "
+from PIL import Image
+img = Image.open('${COCO_ORIGINAL}')
+w, h = '${size}'.split('x')
+img_resized = img.resize((int(w), int(h)), Image.LANCZOS)
+img_resized.save('${outfile}', 'JPEG', quality=95)
+"
+done
+
+echo -e "${GREEN}[ Pass ]${NC} VLM test images ready in collateral/media/images/"

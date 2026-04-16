@@ -397,6 +397,7 @@ check_sysfs() {
     
     [[ ${#sysfs_assigned[@]} -gt 0 ]]
 }
+
 check_smt() {
     if [[ ${#remaining_core_ids[@]} -eq 0 ]]; then
         debug_print "DEBUG: No cores remaining for SMT detection"

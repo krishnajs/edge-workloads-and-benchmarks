@@ -1,0 +1,795 @@
+<!DOCTYPE html>
+<!--
+SPDX-FileCopyrightText: (C) 2024-2025 Intel Corporation
+SPDX-License-Identifier: Apache-2.0
+-->
+
+<html lang='en'>
+<head>
+<meta charset='utf-8'/>
+<title>Edge Workloads and Benchmarks Dashboard</title>
+<meta name='viewport' content='width=device-width,initial-scale=1'/>
+<link rel='preconnect' href='https://fonts.googleapis.com'>
+<link rel='preconnect' href='https://fonts.gstatic.com' crossorigin>
+<link href='https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap' rel='stylesheet'>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="app-layout">
+  <!-- Sidebar -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <span class="sidebar-title">Workloads</span>
+      <button class="sidebar-collapse-btn" id="sidebarToggle" title="Toggle sidebar">&#9776;</button>
+    </div>
+    <nav class="sidebar-nav">
+      <button class="sidebar-item" data-workload="summary" id="navSummary">Summary</button>
+      <div class="sidebar-divider"></div>
+      <button class="sidebar-item active" data-workload="edge-ai-pipelines" id="navEdge">Edge AI Pipelines</button>
+      <button class="sidebar-item" data-workload="vision-benchmarks" id="navVision">Vision Benchmarks</button>
+      <button class="sidebar-item" data-workload="media-benchmarks" id="navMedia">Media Benchmarks</button>
+      <button class="sidebar-item" data-workload="genai-benchmarks" id="navGenai">GenAI Benchmarks</button>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="theme-toggle">
+        <button class="theme-toggle-btn" id="themeToggle" title="Toggle light/dark mode">
+          <svg id="themeIconSun" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+          <svg id="themeIconMoon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+          <span id="themeLabel">Light mode</span>
+        </button>
+      </div>
+      <span class="sidebar-system-name" id="sidebarSystemName"></span>
+    </div>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="main-content">
+
+    <!-- ============================================================ -->
+    <!-- Summary View -->
+    <!-- ============================================================ -->
+    <section id="summarySection" class="workload-section">
+      <div class="container">
+        <header>
+          <h1 id="summaryTitle">Performance Summary</h1>
+        </header>
+
+        <!-- System Configuration -->
+        <div id="sSystemConfig" class="system-config-card card" style="display:none;">
+          <div class="system-config-grid">
+            <div class="system-config-section">
+              <h3 class="system-config-heading">System</h3>
+              <dl class="system-config-dl">
+                <div class="system-config-row"><dt>Processor</dt><dd id="cfgProcessor">—</dd></div>
+                <div class="system-config-row"><dt>OS</dt><dd id="cfgOS">—</dd></div>
+                <div class="system-config-row"><dt>Kernel</dt><dd id="cfgKernel">—</dd></div>
+              </dl>
+            </div>
+            <div class="system-config-section">
+              <h3 class="system-config-heading">Memory</h3>
+              <dl class="system-config-dl">
+                <div class="system-config-row"><dt>Capacity</dt><dd id="cfgMemCapacity">—</dd></div>
+                <div class="system-config-row"><dt>Type</dt><dd id="cfgMemType">—</dd></div>
+                <div class="system-config-row"><dt>Speed</dt><dd id="cfgMemSpeed">—</dd></div>
+              </dl>
+            </div>
+            <div class="system-config-section">
+              <h3 class="system-config-heading">Compute</h3>
+              <dl class="system-config-dl">
+                <div class="system-config-row"><dt>GPU Driver</dt><dd id="cfgGPU">—</dd></div>
+                <div class="system-config-row"><dt>NPU Driver</dt><dd id="cfgNPU">—</dd></div>
+                <div class="system-config-row"><dt>VA-API</dt><dd id="cfgVAAPI">—</dd></div>
+              </dl>
+            </div>
+            <div class="system-config-section">
+              <h3 class="system-config-heading">Software</h3>
+              <dl class="system-config-dl">
+                <div class="system-config-row"><dt>DL Streamer</dt><dd id="cfgDLS">—</dd></div>
+                <div class="system-config-row"><dt>OpenVINO</dt><dd id="cfgOV">—</dd></div>
+                <div class="system-config-row"><dt>Docker</dt><dd id="cfgDocker">—</dd></div>
+              </dl>
+            </div>
+          </div>
+        </div>
+
+        <!-- Edge AI Pipelines -->
+        <div id="sSectionEdge" class="summary-workload-group" style="display:none;">
+          <h2 class="summary-section-header">Edge AI Pipelines</h2>
+          <div class='card chart-grid'>
+            <div class="chart-item">
+              <h2 class="chart-title">Throughput (FPS)</h2>
+              <div id='sEdgeLegendThr' class='legend legend-centered'></div>
+              <div class='chart-container'><canvas id='sEdgeThrChart'></canvas></div>
+              <div class="chart-footer">Higher is better</div>
+            </div>
+            <div class="chart-item">
+              <h2 class="chart-title">Stream Density</h2>
+              <div id='sEdgeLegendTheo' class='legend legend-centered'></div>
+              <div class='chart-container'><canvas id='sEdgeTheoChart'></canvas></div>
+              <div class="chart-footer">Higher is better</div>
+            </div>
+          </div>
+          <div class='card chart-grid' style="margin-top: var(--spacing-lg);">
+            <div class="chart-item">
+              <h2 class="chart-title">Efficiency (FPS/W)</h2>
+              <div id='sEdgeLegendEff' class='legend legend-centered'></div>
+              <div class='chart-container'><canvas id='sEdgeEffChart'></canvas></div>
+              <div class="chart-footer">Higher is better</div>
+            </div>
+            <div class="chart-item">
+              <h2 class="chart-title">Package Power (W)</h2>
+              <div id='sEdgeLegendPower' class='legend legend-centered'></div>
+              <div class='chart-container'><canvas id='sEdgePowerChart'></canvas></div>
+              <div class="chart-footer">Lower is better</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Vision Benchmarks -->
+        <div id="sSectionVision" class="summary-workload-group" style="display:none;">
+          <h2 class="summary-section-header">Vision Benchmarks</h2>
+          <div class='card chart-grid'>
+            <div class="chart-item">
+              <h2 class="chart-title">Detection Throughput (FPS)</h2>
+              <div id='sVisionLegendThrDet' class='legend legend-centered'></div>
+              <div class='chart-container'><canvas id='sVisionThrDetChart'></canvas></div>
+              <div class="chart-footer">Higher is better &bull; Throughput mode</div>
+            </div>
+            <div class="chart-item">
+              <h2 class="chart-title">Classification Throughput (FPS)</h2>
+              <div id='sVisionLegendThrCls' class='legend legend-centered'></div>
+              <div class='chart-container'><canvas id='sVisionThrClsChart'></canvas></div>
+              <div class="chart-footer">Higher is better &bull; Throughput mode</div>
+            </div>
+          </div>
+          <div class='card chart-grid' style="margin-top: var(--spacing-lg);">
+            <div class="chart-item">
+              <h2 class="chart-title">Detection Efficiency (FPS/W)</h2>
+              <div id='sVisionLegendEffDet' class='legend legend-centered'></div>
+              <div class='chart-container'><canvas id='sVisionEffDetChart'></canvas></div>
+              <div class="chart-footer">Higher is better &bull; Throughput mode</div>
+            </div>
+            <div class="chart-item">
+              <h2 class="chart-title">Classification Efficiency (FPS/W)</h2>
+              <div id='sVisionLegendEffCls' class='legend legend-centered'></div>
+              <div class='chart-container'><canvas id='sVisionEffClsChart'></canvas></div>
+              <div class="chart-footer">Higher is better &bull; Throughput mode</div>
+            </div>
+          </div>
+          <div class='card chart-grid' style="margin-top: var(--spacing-lg);">
+            <div class="chart-item">
+              <h2 class="chart-title">Detection Power (W)</h2>
+              <div id='sVisionLegendPowerDet' class='legend legend-centered'></div>
+              <div class='chart-container'><canvas id='sVisionPowerDetChart'></canvas></div>
+              <div class="chart-footer">Lower is better &bull; Throughput mode</div>
+            </div>
+            <div class="chart-item">
+              <h2 class="chart-title">Classification Power (W)</h2>
+              <div id='sVisionLegendPowerCls' class='legend legend-centered'></div>
+              <div class='chart-container'><canvas id='sVisionPowerClsChart'></canvas></div>
+              <div class="chart-footer">Lower is better &bull; Throughput mode</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- GenAI Benchmarks -->
+        <div id="sSectionGenai" class="summary-workload-group" style="display:none;">
+          <h2 class="summary-section-header">GenAI Benchmarks</h2>
+          <div class='card chart-grid'>
+            <div class="chart-item">
+              <h2 class="chart-title">LLM 1st Token Latency (ms)</h2>
+              <div id='sGenaiLegendLatLLM' class='legend legend-centered'></div>
+              <div class='chart-container'><canvas id='sGenaiLatLLMChart'></canvas></div>
+              <div class="chart-footer">Lower is better</div>
+            </div>
+            <div class="chart-item">
+              <h2 class="chart-title">LLM 2nd Token Throughput (tok/s)</h2>
+              <div id='sGenaiLegendThrLLM' class='legend legend-centered'></div>
+              <div class='chart-container'><canvas id='sGenaiThrLLMChart'></canvas></div>
+              <div class="chart-footer">Higher is better</div>
+            </div>
+          </div>
+          <div class='card chart-grid' style="margin-top: var(--spacing-lg);">
+            <div class="chart-item">
+              <h2 class="chart-title">LLM Efficiency (tpt/W)</h2>
+              <div id='sGenaiLegendEffLLM' class='legend legend-centered'></div>
+              <div class='chart-container'><canvas id='sGenaiEffLLMChart'></canvas></div>
+              <div class="chart-footer">Higher is better</div>
+            </div>
+            <div class="chart-item">
+              <h2 class="chart-title">LLM Power (W)</h2>
+              <div id='sGenaiLegendPwrLLM' class='legend legend-centered'></div>
+              <div class='chart-container'><canvas id='sGenaiPwrLLMChart'></canvas></div>
+              <div class="chart-footer">Measurement only</div>
+            </div>
+          </div>
+          <div class='card chart-grid'>
+            <div class="chart-item">
+              <h2 class="chart-title">VLM 1st Token Latency (ms)</h2>
+              <div id='sGenaiLegendLatVLM' class='legend legend-centered'></div>
+              <div class='chart-container'><canvas id='sGenaiLatVLMChart'></canvas></div>
+              <div class="chart-footer">Lower is better</div>
+            </div>
+            <div class="chart-item">
+              <h2 class="chart-title">VLM 2nd Token Throughput (tok/s)</h2>
+              <div id='sGenaiLegendThrVLM' class='legend legend-centered'></div>
+              <div class='chart-container'><canvas id='sGenaiThrVLMChart'></canvas></div>
+              <div class="chart-footer">Higher is better</div>
+            </div>
+          </div>
+          <div class='card chart-grid' style="margin-top: var(--spacing-lg);">
+            <div class="chart-item">
+              <h2 class="chart-title">VLM Efficiency (tpt/W)</h2>
+              <div id='sGenaiLegendEffVLM' class='legend legend-centered'></div>
+              <div class='chart-container'><canvas id='sGenaiEffVLMChart'></canvas></div>
+              <div class="chart-footer">Higher is better</div>
+            </div>
+            <div class="chart-item">
+              <h2 class="chart-title">VLM Power (W)</h2>
+              <div id='sGenaiLegendPwrVLM' class='legend legend-centered'></div>
+              <div class='chart-container'><canvas id='sGenaiPwrVLMChart'></canvas></div>
+              <div class="chart-footer">Measurement only</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Media Benchmarks -->
+        <div id="sSectionMedia" class="summary-workload-group" style="display:none;">
+          <h2 class="summary-section-header">Media Benchmarks</h2>
+          <div class='card chart-grid'>
+            <div class="chart-item">
+              <h2 class="chart-title">Decode Throughput (FPS)</h2>
+              <div id='sMediaLegendThr' class='legend legend-centered'></div>
+              <div class='chart-container'><canvas id='sMediaThrChart'></canvas></div>
+              <div class="chart-footer">Higher is better</div>
+            </div>
+            <div class="chart-item">
+              <h2 class="chart-title">Stream Density</h2>
+              <div id='sMediaLegendTheo' class='legend legend-centered'></div>
+              <div class='chart-container'><canvas id='sMediaTheoChart'></canvas></div>
+              <div class="chart-footer">Higher is better</div>
+            </div>
+          </div>
+          <div class='card chart-grid' style="margin-top: var(--spacing-lg);">
+            <div class="chart-item">
+              <h2 class="chart-title">Efficiency (FPS/W)</h2>
+              <div id='sMediaLegendEff' class='legend legend-centered'></div>
+              <div class='chart-container'><canvas id='sMediaEffChart'></canvas></div>
+              <div class="chart-footer">Higher is better</div>
+            </div>
+            <div class="chart-item">
+              <h2 class="chart-title">Package Power (W)</h2>
+              <div id='sMediaLegendPower' class='legend legend-centered'></div>
+              <div class='chart-container'><canvas id='sMediaPowerChart'></canvas></div>
+              <div class="chart-footer">Lower is better</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- Edge AI Pipelines Section -->
+    <!-- ============================================================ -->
+    <section id="edgePipelinesSection" class="workload-section active">
+      <div class="container">
+        <header>
+          <h1 id="edgeTitle">Edge AI Pipelines Dashboard</h1>
+          <p>Aggregate performance, power and efficiency metrics across different pipeline configurations, device pairings, and batch sizes.</p>
+        </header>
+
+        <div class="dashboard-grid">
+          <div class='card chart-grid'>
+            <div class="chart-item">
+              <h2 class="chart-title">Total Throughput (FPS)</h2>
+              <div id='legendThroughput' class='legend legend-centered'></div>
+              <div class='chart-container'><canvas id='thrChart'></canvas></div>
+              <div class="chart-footer">Higher is better</div>
+            </div>
+            <div class="chart-item">
+              <h2 class="chart-title">
+                Theoretical Streams (@30fps)
+                <span class="tooltip-trigger">?
+                  <span class="tooltip">Maximum number of concurrent video streams that could theoretically be processed while maintaining 30 fps per stream. Calculated as: Total FPS / 30 fps.</span>
+                </span>
+              </h2>
+              <div id='legendTheoretical' class='legend legend-centered'></div>
+              <div class='chart-container'><canvas id='theoChart'></canvas></div>
+              <div class="chart-footer">Higher is better</div>
+            </div>
+            <div class="chart-item">
+              <h2 class="chart-title">Efficiency (FPS/W)</h2>
+              <div id='legendEfficiency' class='legend legend-centered'></div>
+              <div class='chart-container'><canvas id='effChart'></canvas></div>
+              <div class="chart-footer">Higher is better</div>
+            </div>
+            <div class="chart-item">
+              <h2 class="chart-title">Package Power (W)</h2>
+              <div id='legendPower' class='legend legend-centered'></div>
+              <div class='chart-container'><canvas id='powerChart'></canvas></div>
+              <div class="chart-footer">Measurement only</div>
+            </div>
+          </div>
+
+          <p style="font-size: 0.9rem; margin-top: 1rem; margin-bottom: 1rem;">
+            <strong>Device Configurations:</strong>
+            <em>[Device]-Only</em> = Detection and Classification on the same device &bull;
+            <em>Split</em> = Detection on Device #1 and Classification on Device #2 &bull;
+            <em>Concurrent</em> = Separate [Device]-Only pipelines running concurrently in separate processes
+          </p>
+
+          <div id="bestConfigSummary" class="card best-config-summary" style="display: none;">
+            <div class="best-config-header-container">
+              <h3>Best Configurations</h3>
+              <div class="best-config-toggle">
+                <button id="togglePerformance" class="toggle-btn active" data-mode="performance">Performance</button>
+                <button id="toggleEfficiency" class="toggle-btn" data-mode="efficiency">Efficiency</button>
+              </div>
+            </div>
+            <div id="bestConfigContent"></div>
+          </div>
+
+          <div class='card table-card'>
+            <h2>Summary Table</h2>
+            <div class='table-container'>
+              <table id='summaryTable'>
+                <thead>
+                  <tr>
+                    <th>Config</th>
+                    <th>Device Configuration</th>
+                    <th>Batch</th>
+                    <th>Runs</th>
+                    <th>Total FPS</th>
+                    <th>Theoretical Streams</th>
+                    <th>Avg Power (W)</th>
+                    <th>Efficiency (FPS/W)</th>
+                  </tr>
+                </thead>
+                <tbody id='summaryRows'></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div class='card raw-data-card'>
+          <h2>Additional Information</h2>
+          <details>
+            <summary>Show/Hide System Information</summary>
+            <pre id='systemInfoDump'></pre>
+          </details>
+          <details style="margin-top: 1rem;">
+            <summary>Show/Hide Pipeline Definitions</summary>
+            <div class="table-container" style="margin-top: 1rem;">
+              <table>
+                <thead>
+                  <tr><th>Config</th><th>Video</th><th>Detection</th><th>Classification</th></tr>
+                </thead>
+                <tbody>
+                  <tr><td>light</td><td>bears.h265 (2 obj/frame)</td><td>YOLOv11n (640x640) INT8</td><td>ResNet-50 (224x224) INT8</td></tr>
+                  <tr><td>medium</td><td>apple.h265 (1 obj/frame)</td><td>YOLOv5m (640x640) INT8</td><td>ResNet-50 + MobileNet-V2 (224x224) INT8</td></tr>
+                  <tr><td>heavy</td><td>bears.h265 (2 obj/frame)</td><td>YOLOv11m (640x640) INT8</td><td>ResNet-50 + MobileNet-V2 (224x224) INT8</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </details>
+          <details style="margin-top: 1rem;">
+            <summary>Show/Hide Raw Data</summary>
+            <pre id='rawDump'></pre>
+          </details>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- Vision Benchmarks Section -->
+    <!-- ============================================================ -->
+    <section id="visionBenchmarksSection" class="workload-section">
+      <div class="container">
+        <header>
+          <h1 id="visionTitle">Vision Benchmarks Dashboard</h1>
+          <p>OpenVINO inference throughput, latency, power and efficiency across models, devices, and batch sizes.</p>
+        </header>
+
+        <div class="dashboard-grid">
+          <div class='card chart-grid'>
+            <div class="chart-item">
+              <h2 class="chart-title">Detection Throughput (FPS)
+                <span class="tooltip-trigger">?
+                  <span class="tooltip">YOLO detection models only. Throughput-mode results. Stacked bars show per-device breakdown for concurrent runs.</span>
+                </span>
+              </h2>
+              <div id='vLegendThroughputDet' class='legend legend-centered'></div>
+              <div class='chart-container'><canvas id='vThrChartDet'></canvas></div>
+              <div class="chart-footer">Higher is better &bull; Throughput mode only</div>
+            </div>
+            <div class="chart-item">
+              <h2 class="chart-title">Classification Throughput (FPS)
+                <span class="tooltip-trigger">?
+                  <span class="tooltip">Classification models only. Throughput-mode results. Stacked bars show per-device breakdown for concurrent runs.</span>
+                </span>
+              </h2>
+              <div id='vLegendThroughputCls' class='legend legend-centered'></div>
+              <div class='chart-container'><canvas id='vThrChartCls'></canvas></div>
+              <div class="chart-footer">Higher is better &bull; Throughput mode only</div>
+            </div>
+          </div>
+          <div class='card chart-grid'>
+            <div class="chart-item">
+              <h2 class="chart-title">Detection Latency (ms)</h2>
+              <div id='vLegendLatencyDet' class='legend legend-centered'></div>
+              <div class='chart-container'><canvas id='vLatChartDet'></canvas></div>
+              <div class="chart-footer">Lower is better &bull; Latency mode only</div>
+            </div>
+            <div class="chart-item">
+              <h2 class="chart-title">Classification Latency (ms)</h2>
+              <div id='vLegendLatencyCls' class='legend legend-centered'></div>
+              <div class='chart-container'><canvas id='vLatChartCls'></canvas></div>
+              <div class="chart-footer">Lower is better &bull; Latency mode only</div>
+            </div>
+          </div>
+          <div class='card chart-grid'>
+            <div class="chart-item">
+              <h2 class="chart-title">Detection Efficiency (FPS/W)</h2>
+              <div id='vLegendEfficiencyDet' class='legend legend-centered'></div>
+              <div class='chart-container'><canvas id='vEffChartDet'></canvas></div>
+              <div class="chart-footer">Higher is better &bull; Throughput mode only</div>
+            </div>
+            <div class="chart-item">
+              <h2 class="chart-title">Classification Efficiency (FPS/W)</h2>
+              <div id='vLegendEfficiencyCls' class='legend legend-centered'></div>
+              <div class='chart-container'><canvas id='vEffChartCls'></canvas></div>
+              <div class="chart-footer">Higher is better &bull; Throughput mode only</div>
+            </div>
+          </div>
+          <div class='card chart-grid'>
+            <div class="chart-item">
+              <h2 class="chart-title">Detection Power (W)</h2>
+              <div id='vLegendPowerDet' class='legend legend-centered'></div>
+              <div class='chart-container'><canvas id='vPowerChartDet'></canvas></div>
+              <div class="chart-footer">Measurement only &bull; Throughput mode only</div>
+            </div>
+            <div class="chart-item">
+              <h2 class="chart-title">Classification Power (W)</h2>
+              <div id='vLegendPowerCls' class='legend legend-centered'></div>
+              <div class='chart-container'><canvas id='vPowerChartCls'></canvas></div>
+              <div class="chart-footer">Measurement only &bull; Throughput mode only</div>
+            </div>
+          </div>
+
+          <p style="font-size: 0.9rem; margin-top: 1rem; margin-bottom: 1rem;">
+            <strong>Device Configurations:</strong>
+            <em>GPU</em> / <em>NPU</em> = Single-device inference &bull;
+            <em>GPU-NPU-Concurrent</em> = Two benchmark_app processes running simultaneously, throughputs summed. Stacked bars show per-device breakdown.
+          </p>
+
+          <div id="vBestConfigSummary" class="card best-config-summary" style="display: none;">
+            <div class="best-config-header-container">
+              <h3>Best Configurations</h3>
+              <div class="best-config-toggle">
+                <button id="vTogglePerformance" class="toggle-btn active" data-mode="performance">Performance</button>
+                <button id="vTogglePerfSingle" class="toggle-btn" data-mode="performance-single">Single Device</button>
+                <button id="vToggleLatency" class="toggle-btn" data-mode="latency">Latency</button>
+                <button id="vToggleEfficiency" class="toggle-btn" data-mode="efficiency">Efficiency</button>
+              </div>
+            </div>
+            <div id="vBestConfigContent"></div>
+          </div>
+
+          <div class='card table-card'>
+            <h2>Summary Table</h2>
+            <div class='table-container'>
+              <table id='vSummaryTable'>
+                <thead>
+                  <tr>
+                    <th>Model</th>
+                    <th>Device</th>
+                    <th>Mode</th>
+                    <th>Batch</th>
+                    <th>Throughput (FPS)</th>
+                    <th>Median Latency (ms)</th>
+                    <th>Avg Power (W)</th>
+                    <th>Efficiency (FPS/W)</th>
+                  </tr>
+                </thead>
+                <tbody id='vSummaryRows'></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div class='card raw-data-card'>
+          <h2>Additional Information</h2>
+          <details>
+            <summary>Show/Hide System Information</summary>
+            <pre id='vSystemInfoDump'></pre>
+          </details>
+          <details style="margin-top: 1rem;">
+            <summary>Show/Hide Model Definitions</summary>
+            <div class="table-container" style="margin-top: 1rem;">
+              <table>
+                <thead>
+                  <tr><th>Model</th><th>Category</th><th>Resolution</th><th>Quantization</th></tr>
+                </thead>
+                <tbody>
+                  <tr><td>YOLOv11n</td><td>Detection</td><td>640x640</td><td>INT8</td></tr>
+                  <tr><td>YOLOv5m</td><td>Detection</td><td>640x640</td><td>INT8</td></tr>
+                  <tr><td>YOLOv11m</td><td>Detection</td><td>640x640</td><td>INT8</td></tr>
+                  <tr><td>ResNet-50</td><td>Classification</td><td>224x224</td><td>INT8</td></tr>
+                  <tr><td>MobileNet-v2</td><td>Classification</td><td>224x224</td><td>INT8</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </details>
+          <details style="margin-top: 1rem;">
+            <summary>Show/Hide Raw Data</summary>
+            <pre id='vRawDump'></pre>
+          </details>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- Media Benchmarks Section -->
+    <!-- ============================================================ -->
+    <section id="mediaBenchmarksSection" class="workload-section">
+      <div class="container">
+        <header>
+          <h1 id="mediaTitle">Media Benchmarks Dashboard</h1>
+          <p>GPU hardware decode throughput across codecs (H265/H264), resolutions (1080p/4K), and stream counts.</p>
+        </header>
+
+        <div class="dashboard-grid">
+          <div class='card chart-grid'>
+            <div class="chart-item">
+              <h2 class="chart-title">Decode Throughput (FPS)</h2>
+              <div id='mLegendThroughput' class='legend legend-centered'></div>
+              <div class='chart-container'><canvas id='mThrChart'></canvas></div>
+              <div class="chart-footer">Higher is better</div>
+            </div>
+            <div class="chart-item">
+              <h2 class="chart-title">
+                Theoretical Stream Density
+                <span class="tooltip-trigger">?
+                  <span class="tooltip">Maximum concurrent video streams at target frame rate. 1080p target: 30 fps. 4K target: 30 fps. Calculated as: Total FPS / Target FPS.</span>
+                </span>
+              </h2>
+              <div id='mLegendTheoretical' class='legend legend-centered'></div>
+              <div class='chart-container'><canvas id='mTheoChart'></canvas></div>
+              <div class="chart-footer">Higher is better</div>
+            </div>
+            <div class="chart-item">
+              <h2 class="chart-title">Efficiency (FPS/W)</h2>
+              <div id='mLegendEfficiency' class='legend legend-centered'></div>
+              <div class='chart-container'><canvas id='mEffChart'></canvas></div>
+              <div class="chart-footer">Higher is better</div>
+            </div>
+            <div class="chart-item">
+              <h2 class="chart-title">Package Power (W)</h2>
+              <div id='mLegendPower' class='legend legend-centered'></div>
+              <div class='chart-container'><canvas id='mPowerChart'></canvas></div>
+              <div class="chart-footer">Measurement only</div>
+            </div>
+          </div>
+
+          <p style="font-size: 0.9rem; margin-top: 1rem; margin-bottom: 1rem;">
+            <strong>Pipeline:</strong> <code>multifilesrc loop=true ! parser ! VA-API decoder ! vapostproc ! capsfilter ! gvafpscounter ! fakesink</code><br>
+            <strong>1080p:</strong> 8 concurrent streams, target 30 fps/stream &bull;
+            <strong>4K:</strong> 1 stream, target 30 fps
+          </p>
+
+          <div class='card table-card'>
+            <h2>Summary Table</h2>
+            <div class='table-container'>
+              <table id='mSummaryTable'>
+                <thead>
+                  <tr>
+                    <th>Media</th>
+                    <th>Codec</th>
+                    <th>Resolution</th>
+                    <th>Streams</th>
+                    <th>Runs</th>
+                    <th>Total FPS</th>
+                    <th>Theoretical Streams</th>
+                    <th>Avg Power (W)</th>
+                    <th>Efficiency (FPS/W)</th>
+                  </tr>
+                </thead>
+                <tbody id='mSummaryRows'></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div class='card raw-data-card'>
+          <h2>Additional Information</h2>
+          <details>
+            <summary>Show/Hide System Information</summary>
+            <pre id='mSystemInfoDump'></pre>
+          </details>
+          <details style="margin-top: 1rem;">
+            <summary>Show/Hide Media Definitions</summary>
+            <div class="table-container" style="margin-top: 1rem;">
+              <table>
+                <thead>
+                  <tr><th>Media</th><th>Codec</th><th>Resolution</th><th>Streams</th><th>Source Element</th></tr>
+                </thead>
+                <tbody>
+                  <tr><td>bears / apple</td><td>HEVC (H265)</td><td>1080p</td><td>8</td><td>multifilesrc loop=true</td></tr>
+                  <tr><td>bears / apple</td><td>AVC (H264)</td><td>1080p</td><td>8</td><td>multifilesrc loop=true</td></tr>
+                  <tr><td>bears / apple</td><td>HEVC (H265)</td><td>4K (3840x2160)</td><td>1</td><td>multifilesrc loop=true</td></tr>
+                  <tr><td>bears / apple</td><td>AVC (H264)</td><td>4K (3840x2160)</td><td>1</td><td>multifilesrc loop=true</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </details>
+          <details style="margin-top: 1rem;">
+            <summary>Show/Hide Raw Data</summary>
+            <pre id='mRawDump'></pre>
+          </details>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- GenAI Benchmarks Section -->
+    <!-- ============================================================ -->
+    <section id="genaiBenchmarksSection" class="workload-section">
+      <div class="container">
+        <header>
+          <h1 id="genaiTitle">GenAI Benchmarks Dashboard</h1>
+          <p>LLM and VLM inference performance via openvino.genai across models, devices, and precisions.</p>
+        </header>
+
+        <div class="dashboard-grid">
+          <!-- LLM Charts -->
+          <div class='card chart-grid'>
+            <div class="chart-item">
+              <h2 class="chart-title">LLM 1st Token Latency (ms)
+                <span class="tooltip-trigger">?
+                  <span class="tooltip">Time to generate the first token (time-to-first-token). Lower values mean faster initial response.</span>
+                </span>
+              </h2>
+              <div id='gLegendLatencyLLM' class='legend legend-centered'></div>
+              <div class='chart-container'><canvas id='gLatChartLLM'></canvas></div>
+              <div class="chart-footer">Lower is better</div>
+            </div>
+            <div class="chart-item">
+              <h2 class="chart-title">LLM 2nd Token Throughput (tok/s)
+                <span class="tooltip-trigger">?
+                  <span class="tooltip">Sustained token generation throughput for large language models. Higher values mean faster text generation.</span>
+                </span>
+              </h2>
+              <div id='gLegendThroughputLLM' class='legend legend-centered'></div>
+              <div class='chart-container'><canvas id='gThrChartLLM'></canvas></div>
+              <div class="chart-footer">Higher is better</div>
+            </div>
+          </div>
+          <div class='card chart-grid'>
+            <div class="chart-item">
+              <h2 class="chart-title">LLM Efficiency (tpt/W)</h2>
+              <div id='gLegendEfficiencyLLM' class='legend legend-centered'></div>
+              <div class='chart-container'><canvas id='gEffChartLLM'></canvas></div>
+              <div class="chart-footer">Higher is better</div>
+            </div>
+            <div class="chart-item">
+              <h2 class="chart-title">LLM Power (W)</h2>
+              <div id='gLegendPowerLLM' class='legend legend-centered'></div>
+              <div class='chart-container'><canvas id='gPowerChartLLM'></canvas></div>
+              <div class="chart-footer">Measurement only</div>
+            </div>
+          </div>
+
+          <!-- VLM Charts -->
+          <div class='card chart-grid'>
+            <div class="chart-item">
+              <h2 class="chart-title">VLM 1st Token Latency (ms)
+                <span class="tooltip-trigger">?
+                  <span class="tooltip">Time to generate the first token for vision-language models with image input. Lower values mean faster initial response.</span>
+                </span>
+              </h2>
+              <div id='gLegendLatencyVLM' class='legend legend-centered'></div>
+              <div class='chart-container'><canvas id='gLatChartVLM'></canvas></div>
+              <div class="chart-footer">Lower is better</div>
+            </div>
+            <div class="chart-item">
+              <h2 class="chart-title">VLM 2nd Token Throughput (tok/s)
+                <span class="tooltip-trigger">?
+                  <span class="tooltip">Sustained token generation throughput for vision-language models. Higher values mean faster text generation.</span>
+                </span>
+              </h2>
+              <div id='gLegendThroughputVLM' class='legend legend-centered'></div>
+              <div class='chart-container'><canvas id='gThrChartVLM'></canvas></div>
+              <div class="chart-footer">Higher is better</div>
+            </div>
+          </div>
+          <div class='card chart-grid'>
+            <div class="chart-item">
+              <h2 class="chart-title">VLM Efficiency (tpt/W)</h2>
+              <div id='gLegendEfficiencyVLM' class='legend legend-centered'></div>
+              <div class='chart-container'><canvas id='gEffChartVLM'></canvas></div>
+              <div class="chart-footer">Higher is better</div>
+            </div>
+            <div class="chart-item">
+              <h2 class="chart-title">VLM Power (W)</h2>
+              <div id='gLegendPowerVLM' class='legend legend-centered'></div>
+              <div class='chart-container'><canvas id='gPowerChartVLM'></canvas></div>
+              <div class="chart-footer">Measurement only</div>
+            </div>
+          </div>
+
+          <div id="gBestConfigSummary" class="card best-config-summary" style="display: none;">
+            <div class="best-config-header-container">
+              <h3>Best Configurations</h3>
+              <div class="best-config-toggle">
+                <button id="gTogglePerformance" class="toggle-btn active" data-mode="performance">Performance</button>
+                <button id="gToggleLatency" class="toggle-btn" data-mode="latency">Latency</button>
+                <button id="gToggleEfficiency" class="toggle-btn" data-mode="efficiency">Efficiency</button>
+              </div>
+            </div>
+            <div id="gBestConfigContent"></div>
+          </div>
+
+          <div class='card table-card'>
+            <h2>Summary Table</h2>
+            <div class='table-container'>
+              <table id='gSummaryTable'>
+                <thead>
+                  <tr>
+                    <th>Model</th>
+                    <th>Device</th>
+                    <th>Precision</th>
+                    <th>Type</th>
+                    <th>1st Token Latency (ms)</th>
+                    <th>2nd Token Throughput (tok/s)</th>
+                    <th>Avg Power (W)</th>
+                    <th>Efficiency (tpt/W)</th>
+                  </tr>
+                </thead>
+                <tbody id='gSummaryRows'></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div class='card raw-data-card'>
+          <h2>Additional Information</h2>
+          <details>
+            <summary>Show/Hide System Information</summary>
+            <pre id='gSystemInfoDump'></pre>
+          </details>
+          <details style="margin-top: 1rem;">
+            <summary>Show/Hide Model Definitions</summary>
+            <div class="table-container" style="margin-top: 1rem;">
+              <table>
+                <thead>
+                  <tr><th>Model</th><th>Type</th><th>Source</th><th>Precisions</th></tr>
+                </thead>
+                <tbody>
+                  <tr><td>Llama 3.2 3B Instruct</td><td>LLM</td><td>meta-llama/Llama-3.2-3B-Instruct</td><td>INT8_ASYM, INT4_SYM_CW</td></tr>
+                  <tr><td>DeepSeek Qwen 1.5B</td><td>LLM</td><td>deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B</td><td>INT8_ASYM, INT4_SYM_CW</td></tr>
+                  <tr><td>Mistral 7B</td><td>LLM</td><td>OpenVINO/Mistral-7B-Instruct-v0.3</td><td>INT8_ASYM, INT4_SYM_CW</td></tr>
+                  <tr><td>MiniCPM-V 2.6</td><td>VLM</td><td>openbmb/MiniCPM-V-2_6</td><td>INT8_ASYM, INT4_SYM_CW</td></tr>
+                  <tr><td>Gemma 3 4B IT</td><td>VLM</td><td>google/gemma-3-4b-it</td><td>INT8_ASYM, INT4_SYM_CW</td></tr>
+                  <tr><td>Phi-4 Multimodal</td><td>VLM</td><td>microsoft/Phi-4-multimodal-instruct</td><td>INT8_ASYM, INT4_SYM_CW</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </details>
+          <details style="margin-top: 1rem;">
+            <summary>Show/Hide Raw Data</summary>
+            <pre id='gRawDump'></pre>
+          </details>
+        </div>
+      </div>
+    </section>
+
+    <footer class='footer'>
+      Generated by generate_report.py &bull; Edge Workloads and Benchmarks
+    </footer>
+  </main>
+</div>
+
+<script src='https://cdn.jsdelivr.net/npm/chart.js'></script>
+<script src='dashboard.js'></script>
+</body>
+</html>

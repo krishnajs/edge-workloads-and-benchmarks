@@ -140,6 +140,7 @@ read_hwmon_package_power()
                 printf "%s" "$power"
                 return 0
             else
+                sleep "$interval"
                 start=$(<"$value_file")
                 power=$(awk -v val="$start" 'BEGIN { printf "%.2f", val/1000000 }')
                 printf "%s" "$power"
@@ -152,6 +153,7 @@ read_hwmon_package_power()
         if (( ${#power_files[@]} == 1 )); then
             value_file="${power_files[0]}"
             [[ -f "$value_file" ]] || continue
+            sleep "$interval"
             start=$(<"$value_file")
             power=$(awk -v val="$start" 'BEGIN { printf "%.2f", val/1000000 }')
             printf "%s" "$power"
@@ -186,7 +188,8 @@ rapl_energy_path()
     return 1
 }
 
-read_rapl_package_power() {
+read_rapl_package_power()
+{
     local interval="$1"
     local energy_path start end diff power
     if ! energy_path=$(rapl_energy_path); then
@@ -235,6 +238,56 @@ collect_power()
         exit 1
     fi
 
+    # --- Discover sensors for each device (done once) ---
+    declare -a SENSOR_PATHS SENSOR_TYPES SENSOR_SOURCES
+    for idx in "${!DEVICES[@]}"; do
+        IFS='|' read -r card_path card_name driver pci_slot <<< "${DEVICES[$idx]}"
+        local sensor_path="" sensor_type="" sensor_source=""
+
+        # Try hwmon sensors
+        for hwmon_dir in "$card_path/device"/hwmon/hwmon*; do
+            [[ -d "$hwmon_dir" ]] || continue
+            for label_file in "$hwmon_dir"/power*_label "$hwmon_dir"/energy*_label; do
+                [[ -f "$label_file" ]] || continue
+                local label
+                label=$(<"$label_file")
+                label=$(lower_strip "$label")
+                if [[ "$label" != "card" && "$label" != "package" && "$label" != "pkg" ]]; then
+                    continue
+                fi
+                local base=${label_file%_label}
+                local sname=$(basename "$base")
+                if [[ "$sname" == energy* ]] && [[ -f "${base}_input" ]]; then
+                    sensor_path="${base}_input"; sensor_type="energy"; sensor_source="hwmon"; break 2
+                elif [[ -f "${base}_input" ]]; then
+                    sensor_path="${base}_input"; sensor_type="power"; sensor_source="hwmon"; break 2
+                elif [[ -f "${base}_average" ]]; then
+                    sensor_path="${base}_average"; sensor_type="power"; sensor_source="hwmon"; break 2
+                fi
+            done
+            # fallback: single power sensor without labels
+            if [[ -z "$sensor_path" ]]; then
+                local power_files=("$hwmon_dir"/power*_input "$hwmon_dir"/power*_average)
+                if (( ${#power_files[@]} == 1 )) && [[ -f "${power_files[0]}" ]]; then
+                    sensor_path="${power_files[0]}"; sensor_type="power"; sensor_source="hwmon"; break
+                fi
+            fi
+        done
+
+        # Fallback to RAPL
+        if [[ -z "$sensor_path" ]]; then
+            if sensor_path=$(rapl_energy_path); then
+                sensor_type="energy"; sensor_source="rapl"
+            else
+                sensor_path=""; sensor_type=""; sensor_source="unavailable"
+            fi
+        fi
+
+        SENSOR_PATHS[$idx]="$sensor_path"
+        SENSOR_TYPES[$idx]="$sensor_type"
+        SENSOR_SOURCES[$idx]="$sensor_source"
+    done
+
     local samples=$(( Duration / Interval ))
 
     echo "[ Info ] Monitoring for ${Duration}s after a ${Delay}s delay" >&2
@@ -243,20 +296,36 @@ collect_power()
     sleep "${Delay}"
 
     for (( i=0; i<samples; i++ )); do
-        for device_info in "${DEVICES[@]}"; do
-            IFS='|' read -r card_path card_name driver pci_slot <<< "$device_info"
-            
-            local source_type=""
-            
-            if power=$(read_hwmon_package_power "$card_path/device" "$Interval"); then
-                source_type="hwmon"
-            elif power=$(read_rapl_package_power "$Interval"); then
-                source_type="rapl"
-            else
-                power="N/A"
-                source_type="unavailable"
+        # Read start values for energy-based sensors
+        declare -a start_vals
+        for idx in "${!DEVICES[@]}"; do
+            if [[ "${SENSOR_TYPES[$idx]}" == "energy" && -n "${SENSOR_PATHS[$idx]}" ]]; then
+                start_vals[$idx]=$(<"${SENSOR_PATHS[$idx]}")
             fi
-            
+        done
+
+        # Single sleep per sample interval
+        sleep "$Interval"
+
+        # Read end values and compute power for all devices
+        for idx in "${!DEVICES[@]}"; do
+            IFS='|' read -r card_path card_name driver pci_slot <<< "${DEVICES[$idx]}"
+            local power="N/A"
+            local source_type="${SENSOR_SOURCES[$idx]:-unavailable}"
+
+            if [[ "${SENSOR_TYPES[$idx]}" == "energy" && -n "${SENSOR_PATHS[$idx]}" ]]; then
+                local end_val=$(<"${SENSOR_PATHS[$idx]}")
+                local diff=$(( end_val - start_vals[$idx] ))
+                if (( diff < 0 )); then
+                    diff=$(( diff + 4294967296 ))
+                fi
+                power=$(awk -v diff="$diff" -v interval="$Interval" \
+                    'BEGIN { printf "%.2f", (diff/1000000)/interval }')
+            elif [[ "${SENSOR_TYPES[$idx]}" == "power" && -n "${SENSOR_PATHS[$idx]}" ]]; then
+                local val=$(<"${SENSOR_PATHS[$idx]}")
+                power=$(awk -v val="$val" 'BEGIN { printf "%.2f", val/1000000 }')
+            fi
+
             if [[ "$power" != "N/A" ]]; then
                 printf "[%s] %s (%s @ %s): %s W\n" \
                     "$source_type" "$card_name" "$driver" "$pci_slot" "$power"
@@ -265,10 +334,6 @@ collect_power()
                     "$source_type" "$card_name" "$driver" "$pci_slot" >&2
             fi
         done
-        
-        if (( i < samples - 1 )); then
-            sleep "$Interval"
-        fi
     done
 
     echo "" >&2

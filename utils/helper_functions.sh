@@ -3,10 +3,6 @@
 # SPDX-FileCopyrightText: (C) 2024 - 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-require_file() {
-    [[ -f "$1" ]] || { echo "[ Error ] Missing required file: $1"; return 1; }
-}
-
 parse_core_pinning() {
     local input="$1"
     local script_dir
@@ -74,49 +70,71 @@ parse_core_pinning() {
     return 0
 }
 
-validate_assets() {
-    (( $# == 2 )) || { echo "[ Error ] validate_assets <config> <pipelines_root>"; return 1; }
-    local config="$1" root="$2" missing=0
-
-    case "${config}" in
-        light)
-            require_file "${root}/light/video/bears.h265" || missing=1
-            require_file "${root}/light/detection/yolov11n_640x640/INT8/yolo11n.xml" || missing=1
-            require_file "${root}/light/detection/yolov11n_640x640/INT8/yolo11n.bin" || missing=1
-            require_file "${root}/light/classification/resnet-v1-50-tf/INT8/resnet-v1-50-tf.xml" || missing=1
-            require_file "${root}/light/classification/resnet-v1-50-tf/INT8/resnet-v1-50-tf.bin" || missing=1
-            require_file "${root}/light/classification/resnet-v1-50-tf/resnet-50.json" || missing=1
-            ;;
-        medium)
-            require_file "${root}/medium/video/apple.h265" || missing=1
-            require_file "${root}/medium/detection/yolov5m_640x640/INT8/yolov5m-640_INT8.xml" || missing=1
-            require_file "${root}/medium/detection/yolov5m_640x640/INT8/yolov5m-640_INT8.bin" || missing=1
-            require_file "${root}/medium/detection/yolov5m_640x640/yolo-v5.json" || missing=1
-            require_file "${root}/medium/classification/resnet-v1-50-tf/INT8/resnet-v1-50-tf.xml" || missing=1
-            require_file "${root}/medium/classification/resnet-v1-50-tf/INT8/resnet-v1-50-tf.bin" || missing=1
-            require_file "${root}/medium/classification/resnet-v1-50-tf/resnet-50.json" || missing=1
-            require_file "${root}/medium/classification/mobilenet-v2-1.0-224-tf/INT8/mobilenet-v2-1.0-224.xml" || missing=1
-            require_file "${root}/medium/classification/mobilenet-v2-1.0-224-tf/INT8/mobilenet-v2-1.0-224.bin" || missing=1
-            require_file "${root}/medium/classification/mobilenet-v2-1.0-224-tf/mobilenet-v2.json" || missing=1
-            ;;
-        heavy)
-            require_file "${root}/heavy/video/bears.h265" || missing=1
-            require_file "${root}/heavy/detection/yolov11m_640x640/INT8/yolo11m.xml" || missing=1
-            require_file "${root}/heavy/detection/yolov11m_640x640/INT8/yolo11m.bin" || missing=1
-            require_file "${root}/heavy/classification/resnet-v1-50-tf/INT8/resnet-v1-50-tf.xml" || missing=1
-            require_file "${root}/heavy/classification/resnet-v1-50-tf/INT8/resnet-v1-50-tf.bin" || missing=1
-            require_file "${root}/heavy/classification/resnet-v1-50-tf/resnet-50.json" || missing=1
-            require_file "${root}/heavy/classification/mobilenet-v2-1.0-224-tf/INT8/mobilenet-v2-1.0-224.xml" || missing=1
-            require_file "${root}/heavy/classification/mobilenet-v2-1.0-224-tf/INT8/mobilenet-v2-1.0-224.bin" || missing=1
-            require_file "${root}/heavy/classification/mobilenet-v2-1.0-224-tf/mobilenet-v2.json" || missing=1
-            ;;
-        *)
-            echo "[ Error ] validate_assets: unknown config ${config}"; return 1
-            ;;
-    esac
-
-    if (( missing )); then
-        echo "[ Error ] One or more required pipeline assets are missing. Run model and media preparation scripts first."; return 1
+# Fix file ownership when running under sudo so non-root user can access results.
+fix_sudo_permissions() {
+    local target_dir="$1"
+    if [[ -n "${SUDO_USER:-}" && -d "${target_dir}" ]]; then
+        chown -R "${SUDO_USER}:${SUDO_GID:-$(id -g "${SUDO_USER}")}" "${target_dir}"
     fi
-    return 0
+}
+
+# ── Power Monitoring ─────────────────────────────────────────────────────────
+# Shared functions for starting, stopping, and collecting power measurements.
+# Usage:
+#   power_init <results_dir> <filename> <duration>   → sets PowerLogFile, PowerDelay, PowerDuration
+#   power_start <duration>                           → launches background monitor, sets PowerPID
+#   power_stop                                       → kills background monitor
+#   power_collect                                    → parses log, prints avg, sets AvgPower
+#
+# GenAI note: GenAI starts power monitoring after warm-up detection, so it calls
+# power_start directly from inside its while-read loop rather than at script top.
+
+# Globals set by these functions (caller should declare them):
+#   PowerPID, PowerLogFile, PowerDelay, PowerDuration, AvgPower
+
+POWER_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+power_init() {
+    local results_dir="$1"
+    local filename="$2"
+    local duration="$3"
+
+    PowerPID=""
+    PowerLogFile="${results_dir}/${filename}_power.log"
+    PowerDelay=$(bc <<< "scale=0; ${duration} / 4")
+    PowerDuration=$(bc <<< "scale=0; ${duration} / 2")
+    AvgPower="NA"
+}
+
+power_start() {
+    local duration="$1"
+
+    if [[ -x "${POWER_SCRIPT_DIR}/get_package_power.sh" ]]; then
+        timeout --preserve-status "${duration}" "${POWER_SCRIPT_DIR}/get_package_power.sh" \
+            -s 1 -i "${PowerDuration}" -d "${PowerDelay}" > "${PowerLogFile}" 2>&1 &
+        PowerPID=$!
+        sleep 0.5
+        if kill -0 "${PowerPID}" 2>/dev/null; then
+            echo "[ Info ] Power monitoring started (PID: ${PowerPID})"
+        else
+            wait "${PowerPID}" 2>/dev/null || true
+            PowerPID=""
+        fi
+    fi
+}
+
+power_stop() {
+    if [[ -n "${PowerPID:-}" ]]; then
+        kill "${PowerPID}" 2>/dev/null || true
+        wait "${PowerPID}" 2>/dev/null || true
+        PowerPID=""
+    fi
+}
+
+power_collect() {
+    AvgPower="NA"
+    if [[ -f "${PowerLogFile}" ]] && grep -q "W$" "${PowerLogFile}" 2>/dev/null; then
+        AvgPower=$(grep -oP '\d+\.\d+(?= W)' "${PowerLogFile}" | \
+            awk '{sum+=$1; count++} END {if(count>0) printf "%.2f", sum/count; else print "NA"}')
+    fi
 }
