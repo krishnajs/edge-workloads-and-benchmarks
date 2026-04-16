@@ -1,174 +1,74 @@
-# Edge Workloads and Benchmarks Pipelines
+# Edge Workloads and Benchmarks
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 
-Edge Workloads and Benchmarks are performance-optimized pipelines that utilizes the [GStreamer multimedia framework](https://gstreamer.freedesktop.org) and the [Deep Learning Streamer (DL Streamer)](https://github.com/open-edge-platform/edge-ai-libraries/tree/main/libraries/dl-streamer) for validating media and edge AI video analytics. The pipelines measure end-to-end throughput in frames per second (fps), pipeline stream density in fps, package power in watts, and workload efficiency in fps per package watt.
+Edge Workloads and Benchmarks is a benchmarking suite for validating media and edge AI video analytics performance on Intel hardware. 
 
-### Pipeline Architecture
-
-HEVC 1080p Video Decode (GPU Hardware-Accelerated) → Object Detection (GPU or NPU) → Object Tracking → 1-2x Object Classification (GPU or NPU)
-
-## Pipeline Configurations
-| Config | Video | Detection | Classification |
-|------|-------|-----------|----------------|
-| light | bears.h265 (2 obj/frame) | YOLOv11n (640x640) INT8 | ResNet‑50 (224x224) INT8 |
-| medium | apple.h265 (1 obj/frame) | YOLOv5m (640x640) INT8 | ResNet‑50 + MobileNet‑V2 (224x224) INT8 |
-| heavy | bears.h265 (2 obj/frame) | YOLOv11m (640x640) INT8 | ResNet‑50 + MobileNet‑V2 (224x224) INT8 |
-
-Pipeline configurations include single-device pipelines (GPU or NPU only), pipelines with multiple devices (GPU Detect and NPU Classify), and multiple single-device pipelines running concurrently in separate processes (GPU only and NPU only, concurrently).
+### Target Workloads
+| Workload Name | Framework | Description | Key Metrics |
+|---------------|-----------|-------------|-------------|
+| Edge AI Pipelines | [DL Streamer](https://github.com/open-edge-platform/dlstreamer/) | End-to-end video analytics using [GStreamer](https://gstreamer.freedesktop.org) and Deep Learning Streamer (DL Streamer) | Pipeline Throughput, Stream Density at 30fps
+| Vision Benchmarks | [OpenVINO](https://docs.openvino.ai/) | AI model inference benchmarks using [OpenVINO](https://docs.openvino.ai/) benchmark app | Inference Latency, Inference Throughput
+| Media Benchmarks | [GStreamer](https://gstreamer.freedesktop.org) | Hardware-Accelerated video decode benchmarks with VA-API | Decode Throughput, Stream Density at 30fps
+| GenAI Benchmarks | [OpenVINO GenAI](https://github.com/openvinotoolkit/openvino.genai) | Generative AI inference benchmarks for LLM and VLM models using [OpenVINO GenAI](https://github.com/openvinotoolkit/openvino.genai) | First Token Latency, Second Token Throughput
 
 ## Prerequisites
 
 ### System Requirements
-
-A GPU with video acceleration API (VA-API) media support that:
-- Is validated on Ubuntu OS version 24.04.3 LTS with kernel version 6.16 and above
-- Has Docker software installed and the user added in the docker group
-- Has Integrated GPU
-- Has NPU (optional)
-
+Repository validated on Ubuntu OS version 24.04.4 LTS with kernel version 6.16
+- GPU with video acceleration API (VA-API) media support
+- 16+ GB Memory
+- 65GB storage space (15GB without GenAI models)
+- **Optional:** integrated NPU
 
 ### Software Requirements
-
 - Docker software version 20.10 and above ([installation guide](https://docs.docker.com/engine/install/ubuntu/))
-- Python programming language version 3.8 and above with virtual environment (venv) support
+- Python programming language version 3.10 and above with virtual environment (venv) support
 - Network connectivity for model or media download
-
-### Storage Space Requirements
-
-Breakdown of space required:
-- Models: 230 MB
-- COCO dataset: 950 MB
-- CIFAR-100 dataset: 162 MB
-- Videos: 1.9 GB
-- Virtual Environment: 7.7 GB
-
-Total space required: 10.9 GB
-
-Optional ImageNet Dataset Download: 6.5GB. You will need to download this manually. See [model-conversion](model-conversion/README.md).
-
-### Display Pipeline
-
-Run the following commands to allow X server connection in the Docker container, so that the display pipeline sample can access the host's display:
-
-```bash
-xhost local:root
-setfacl -m user:1000:r ~/.Xauthority
-```
 
 ## Get Started
 
-The Makefile automates the entire workflow. Use `make help` to display the following:
+The top-level Makefile handles setup, collateral downloads, and reporting. Use `make help` to display available commands:
 
-```bash
-# Three-step setup
-make prereqs          # Install dependencies (params: INCLUDE_GPU=True INCLUDE_NPU=True).
-make models           # Download and convert models (params: IMAGENET_ROOT, optional)
-make media            # Download and transcode video files
+### Usage
+```Makefile
+Setup:
+  make prereqs                Install dependencies and compute drivers
+  make collateral             Download AI models and media files
+                              Add 'INCLUDE_GENAI=True' to download GenAI models
+  make check                  Optional: Verify everything is ready for benchmarking
 
-# Run benchmarks
-make benchmarks       # Run all pipeline configurations (params: CORES={cores-to-pin-workload} DURATION={seconds})
-sudo make benchmarks  # Recommended: Adds power and efficiency metrics to report. Requires root permissions to read power sensors
+Benchmarks:
+  Run 'make benchmarks' from inside a workload directory:
+    Vision Inference:         workloads/vision-benchmarks
+    Media Decode:             workloads/media-benchmarks
+    Edge AI Pipelines:        workloads/edge-ai-pipelines
+    GenAI Inference:          workloads/genai-benchmarks
 
-# Generate results
-make html-report      # Generate HTML dashboard from benchmark results. Requires serve-report to view locally.
-make serve-report     # Host dashboard locally (params: PORT, HOSTIP, default host: http://localhost:8000)
+Results:
+  make status                 Optional: Show benchmark completion status
+  make report                 Generate HTML dashboard
+  make serve                  Start local dashboard server
 
-# Optional: display pipeline demo (requires display access permissions)
-make display          # Visualized pipeline demo (params: CONFIG={light,medium,heavy} DETECT={CPU,GPU,NPU} CLASSIFY={CPU,GPU,NPU} DURATION={seconds})
-
-# Cleanup
-make clean            # Remove all results
-make clean-all        # Remove all generated collateral (models, media, results, and venv)
+Cleanup:
+  sudo make clean-results     Optional: Remove benchmark results
+  sudo make clean-all         Optional: Remove all generated content
 ```
 
-### Examples
-
-- Prereqs: `make prereqs INCLUDE_GPU=True INCLUDE_NPU=True`
-- Display: `make display CONFIG=light DETECT=GPU CLASSIFY=NPU DURATION=60`
-- Benchmarks: `sudo make benchmarks CORES=ecore DURATION=60`
-
-### Makefile Variables
-
-- `IMAGENET_ROOT` - Path to pre-downloaded the ImageNet dataset for accuracy validation on ResNet architecture and MobileNet networks (see [model-conversion](model-conversion/README.md))
-- `INCLUDE_GPU` - Install GPU drivers during setup
-- `INCLUDE_NPU` - Install NPU drivers during setup (requires reboot)
-- `DURATION` - Duration to run pipeline in seconds
-- `CONFIG=light|medium|heavy` - Pipeline configuration, tiered by compute complexity
-- `DETECT/CLASSIFY=CPU|GPU|NPU` - Inference device assignment
-- `CORES=pcore|ecore|lpecore` - CPU core pinning based on core type
-- `PORT` - HTTP server port for dashboard (default: 8000)
-- `HOSTIP` - HTTP server IP binding for dashboard (default: localhost)
-
-### Manual Setup (Alternative)
-
-If you prefer step-by-step control:
-
-Step 1. Prerequisites:
-
+### Quick Start
 ```bash
-cd setup/
-./install_prerequisites.sh
-# Optional: --reinstall-gpu-driver=yes and/or --reinstall-npu-driver=yes
+make prereqs                                      # Install dependencies
+make collateral INCLUDE_GENAI=True                # Download all models and media
+cd workloads/edge-ai-pipelines && make benchmarks # Run benchmarks
+cd ../../                                         # Return to repository root
+make report && make serve                         # View results at http://127.0.0.1:8000
 ```
+Once completed, navigate to the other workload directories and run `make benchmarks` for full workload coverage and `make report` to update the dashboard.
+### Further Reading
 
-Step 2. Models:
-
-```bash
-cd ../model-conversion/
-./convert_models.sh
-# Optional: -i "$HOME/datasets/imagenet-packages" for ImageNet quantization
-```
-
-Step 3. Media:
-
-```bash
-cd ../media-downloader/
-./download_and_encode.sh
-```
-
-Step 4. Run benchmark:
-
-```bash
-cd ..
-./benchmark_edge_pipelines.sh \
-	-p <light|medium|heavy> \
-	-n <num_streams> \
-	-b <batch_size> \
-	-d <DetectDevice> \
-	-c <ClassifyDevice> \
-	-i <duration_sec> \
-	-t <scheduling_core_type>
-
-# Example command line
-./benchmark_edge_pipelines.sh -p light -n 8 -b 8 -d GPU -c NPU -i 120 -t ecore
-```
-**Parameters:**
-* `-p` Pipeline config: `light` | `medium` | `heavy` (required)
-* `-n` Number of parallel streams (default: 1)
-* `-b` Batch size (default: 1)
-* `-d` Detection device: `CPU` | `GPU` | `GPU.<idx>` | `NPU` (default: CPU)
-* `-c` Classification device: `CPU` | `GPU` | `GPU.<idx>` | `NPU` (default: CPU)
-* `-i` Duration in seconds (default: 120)
-* `-t` CPU core type for pinning, e.g., `"ecore"` (optional)
-* `--concurrent` Enable concurrent GPU or NPU execution mode (optional)
-
-**Note:** Intel recommends the GPU or NPU for AI inference workloads.
-
-Step 5. Display Results:
-
-```bash
-# Generate and view dashboard
-python3 html/generate_report.py
-cd html && python3 -m http.server 8000  # Access at http://localhost:8000
-```
-
-### Output
-
-Results are saved to the `results/` folder, organized by execution mode:
-
-* `*.log` – Full GStreamer pipeline output (stdout or stderr)
-* `*.csv` – Performance metrics (FPS, stream density, and configuration)
+- [Pipeline Architecture](docs/PIPELINE.md) — Edge AI pipeline configurations and device modes
+- [Usage Guide](docs/USAGE.md) — Makefile variables, script parameters, benchmark options, and output format
+- [Manual Setup](docs/MANUAL.md) — Step-by-step instructions for running each script directly
 
 ## Get Help or Contribute
 
@@ -193,6 +93,6 @@ However, certain components are derived from code covered by the **GNU Affero Ge
  
 - **Apache 2.0** applies to all original work in this repository unless otherwise noted.
 - **AGPL-3.0** applies to the following directories/components:
-  - `model-conversion\scripts\coco.yaml`
+  - `tools/model-conversion/scripts/coco.yaml`
 
 These components include a copy of the AGPL license in their respective folders.
