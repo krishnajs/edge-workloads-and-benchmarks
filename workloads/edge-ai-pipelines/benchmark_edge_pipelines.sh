@@ -327,7 +327,6 @@ if [[ ${#Commands[@]} -gt 1 ]]; then
         echo ""
         echo "[ Info ] Pipeline Template: ${PipelineTemplates[$i]}"
         ThisDockerCommand=("${DockerCommand[@]}" --name "${ContainerName}" intel/dlstreamer:2026.1.0-20260414-weekly-ubuntu24)
-        #ThisDockerCommand=("${DockerCommand[@]}" --name "${ContainerName}" intel/dlstreamer:2026.0.0-ubuntu24)
         
         # Run the pipelines
         # shellcheck disable=SC2086
@@ -343,7 +342,6 @@ else
     echo ""
     echo "[ Info ] Pipeline Template: ${PipelineTemplates[0]}"
     ThisDockerCommand=("${DockerCommand[@]}" --name "${ContainerName}" intel/dlstreamer:2026.1.0-20260414-weekly-ubuntu24)
-    #ThisDockerCommand=("${DockerCommand[@]}" --name "${ContainerName}" intel/dlstreamer:2026.0.0-ubuntu24)
     
     # Run the pipelines
     sleep 1

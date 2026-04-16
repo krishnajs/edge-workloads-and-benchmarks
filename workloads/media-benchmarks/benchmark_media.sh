@@ -75,8 +75,6 @@ is_posint() { [[ "$1" =~ ^[1-9][0-9]*$ ]]; }
 is_posint "${NumStreams}" || { echo "[ Error ] -n must be a positive integer"; exit 1; }
 is_posint "${Duration}"  || { echo "[ Error ] -i must be a positive integer (seconds)"; exit 1; }
 
-    #h265) Parser="h265parse"; Decoder="vah265dec"; CodecDir="hevc" ;;
-    #h264) Parser="h264parse"; Decoder="vah264dec"; CodecDir="avc" ;;
 # Determine codec and resolution from filename
 Codec="${MediaFile##*.}"
 case "${Codec}" in

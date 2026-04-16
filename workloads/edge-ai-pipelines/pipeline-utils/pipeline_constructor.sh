@@ -27,7 +27,6 @@ construct_decode()
     esac
 
     DecodePipe="filesrc location=${video} ! parsebin ! decodebin3"
-    #DecodePipe="filesrc location=${video} ! h265parse ! vah265dec ! capsfilter caps=\"video/x-raw(memory:VAMemory)\""
     echo "${DecodePipe}"
 }
 
@@ -70,7 +69,6 @@ construct_detection()
         ;;
         NPU)
         ppbackend="va"
-        #ppbackend="opencv"
         infconfig="nireq=4"
         batch=1
         ;;
@@ -107,7 +105,6 @@ construct_classification()
         ;;
         NPU)
         ppbackend="va"
-        #ppbackend="opencv"
         infconfig="nireq=4"
         batch=1
         ;;
