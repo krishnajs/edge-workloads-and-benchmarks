@@ -70,7 +70,7 @@ echo ""
 echo -e "${CYAN}[ Info ]${NC} Installing OpenCL ICD loader..."
 sudo apt-get update -qq
 sudo apt --fix-broken install -y --allow-downgrades -qq 2>/dev/null
-sudo apt-get install -y -qq ocl-icd-libopencl1
+sudo apt-get install -y ocl-icd-libopencl1
 
 echo -e "${CYAN}[ Info ]${NC} Installing GPU driver packages..."
 sudo dpkg -i ./*.deb 2>/dev/null || sudo apt-get install -f -y -qq

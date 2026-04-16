@@ -76,7 +76,7 @@ echo -e "${CYAN}[ Info ]${NC} Install GPU driver: $REINSTALL_GPU_DRIVER"
 echo -e "${CYAN}[ Info ]${NC} Install NPU driver: $REINSTALL_NPU_DRIVER"
 
 # Timeout configuration
-APT_UPDATE_TIMEOUT=60
+APT_UPDATE_TIMEOUT=600
 APT_GET_TIMEOUT=600
 
 # Check if running as root
@@ -102,7 +102,7 @@ cpu_model_name=$(lscpu | grep "Model name:" | awk -F: '{print $2}' | xargs)
 echo -e "${CYAN}[ Info ]${NC} CPU: $cpu_model_name"
 
 update_package_lists() {
-    timeout --foreground $APT_UPDATE_TIMEOUT $SUDO_PREFIX apt-get update -qq 2>&1
+    timeout --foreground $APT_UPDATE_TIMEOUT $SUDO_PREFIX apt-get update
     local update_exit_code=$?
 
     if [ $update_exit_code -eq 124 ]; then

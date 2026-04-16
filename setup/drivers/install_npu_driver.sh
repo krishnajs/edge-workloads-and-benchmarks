@@ -96,7 +96,7 @@ fi
 echo -e "${CYAN}[ Info ]${NC} Installing dependencies..."
 sudo apt-get update -qq
 sudo apt --fix-broken install -y --allow-downgrades -qq 2>/dev/null
-sudo apt-get install -y -qq libtbb12
+sudo apt-get install -y libtbb12
 
 echo -e "${CYAN}[ Info ]${NC} Installing NPU driver packages..."
 sudo dpkg -i ./*.deb 2>/dev/null || sudo apt-get install -f -y -qq
