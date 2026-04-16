@@ -10,7 +10,8 @@ Intel has validated the GPU and NPU compute drivers in terms of performance repr
 ```
 
 **Specifications:**
-- GPU Driver Version: 25.27.34303.5
+- GPU Driver Version: 26.09.37435.1
+- IGC Version: 2.30.1
 
 ### NPU Driver Installation  
 ```bash
@@ -18,8 +19,9 @@ Intel has validated the GPU and NPU compute drivers in terms of performance repr
 ```
 
 **Specifications:**
-- NPU Driver Version: 1.23.0
-- Level Zero: 1.22.4
+- NPU Driver Version: v1.32.0
+- Level Zero: 1.27.0
+- Requires Ubuntu 24.04
 
 
 ## Directory Structure
@@ -27,9 +29,9 @@ Intel has validated the GPU and NPU compute drivers in terms of performance repr
 ```
 drivers/
 ├── gpu/
-│   └── 25.27.34303.5/          # Downloaded GPU driver packages
+│   └── 26.09.37435.1/          # Downloaded GPU driver packages
 └── npu/
-    └── v1.23.0/                # Downloaded NPU driver packages
+    └── v1.32.0/                # Downloaded NPU driver packages
 ```
 
 Downloaded packages are saved locally for offline reinstallation.

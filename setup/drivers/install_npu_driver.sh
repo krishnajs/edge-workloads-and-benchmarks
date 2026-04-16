@@ -1,55 +1,64 @@
 #!/bin/bash
 
-# SPDX-FileCopyrightText: (C) 2024 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2024 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
-
-# NPU Compute Driver: v1.23.0
-
 
 set -e
 
 # Colors
 RED='\033[0;31m'
 GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+CYAN='\033[0;36m'
 NC='\033[0m'
 
 # Configuration
-NPU_DRIVER_VERSION="v1.23.0"
-LEVEL_ZERO_VERSION="1.22.4"
+NPU_DRIVER_VERSION="v1.32.0"
+NPU_DRIVER_BUILD="20260402-23905121947"
+LEVEL_ZERO_VERSION="1.27.0"
+# Level Zero is sourced from the intel-graphics PPA snapshot for this driver release.
+# Update the snapshot timestamp here when bumping LEVEL_ZERO_VERSION.
+LEVEL_ZERO_PKG="libze1_${LEVEL_ZERO_VERSION}-1~24.04~ppa2_amd64.deb"
+LEVEL_ZERO_URL="https://snapshot.ppa.launchpadcontent.net/kobuk-team/intel-graphics/ubuntu/20260324T100000Z/pool/main/l/level-zero-loader/${LEVEL_ZERO_PKG}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" &> /dev/null && pwd)"
 DRIVER_DIR="${SCRIPT_DIR}/npu/${NPU_DRIVER_VERSION}"
 
+# Preserve the original user (not root when running with sudo)
+ORIGINAL_USER="${ORIGINAL_USER:-${SUDO_USER:-$USER}}"
+
 echo "NPU Driver Installation"
-echo "Driver Version: ${NPU_DRIVER_VERSION}"
-echo ""
+echo -e "${CYAN}[ Info ]${NC} Driver Version: ${NPU_DRIVER_VERSION}"
+echo -e "${CYAN}[ Info ]${NC} Level Zero: ${LEVEL_ZERO_VERSION}"
 
 # Detect Ubuntu version
 UBUNTU_VERSION=$(lsb_release -rs 2>/dev/null || echo "unknown")
 case "$UBUNTU_VERSION" in
-    24.04|22.04)
-        echo "[ Info ] Ubuntu $UBUNTU_VERSION detected"
+    24.04)
+        echo -e "${CYAN}[ Info ]${NC} Ubuntu $UBUNTU_VERSION detected"
         ;;
     *)
         echo -e "${RED}[ Error ]${NC} Unsupported Ubuntu version: $UBUNTU_VERSION"
-        echo "NPU drivers require Ubuntu 22.04 or 24.04"
+        echo "NPU driver ${NPU_DRIVER_VERSION} requires Ubuntu 24.04"
         exit 1
         ;;
 esac
 
 # Check for NPU
-echo "[ Info ] Checking for NPU..."
+echo -e "${CYAN}[ Info ]${NC} Checking for NPU..."
 NPU_DETECTED=false
 if lspci | grep -i "processing.*intel" > /dev/null 2>&1; then
-    echo -e "[ Info ] NPU detected${NC}"
+    echo -e "${CYAN}[ Info ]${NC} NPU detected"
     NPU_DETECTED=true
+    echo ""
 elif lspci | grep -E "0b40|0bd4|0b70" > /dev/null 2>&1; then
-    echo -e "[ Info ] NPU detected${NC}"
+    echo -e "${CYAN}[ Info ]${NC} NPU detected"
     NPU_DETECTED=true
+    echo ""
 fi
 
 if [ "$NPU_DETECTED" = false ]; then
-    echo "[ Warning ] No NPU detected"
-    echo "[ Info ] NPU requires Core Ultra processors (Meteor Lake+)"
+    echo -e "${YELLOW}[ Warning ]${NC} No NPU detected"
+    echo -e "${CYAN}[ Info ]${NC} NPU requires Core Ultra processors (Meteor Lake+)"
     read -p "Continue installation anyway? (y/N): " -n 1 -r
     echo
     if [[ ! $REPLY =~ ^[Yy]$ ]]; then
@@ -59,8 +68,8 @@ fi
 
 # Remove existing NPU packages if present
 if dpkg -l | grep -q "intel.*npu" 2>/dev/null; then
-    echo "[ Info ] Removing existing NPU packages..."
-    sudo dpkg --purge --force-remove-reinstreq intel-driver-compiler-npu intel-fw-npu intel-level-zero-npu 2>/dev/null || true
+    echo -e "${CYAN}[ Info ]${NC} Removing existing NPU packages..."
+    sudo dpkg --purge --force-remove-reinstreq intel-driver-compiler-npu intel-fw-npu intel-level-zero-npu intel-level-zero-npu-dbgsym 2>/dev/null || true
 fi
 
 # Create driver directory
@@ -68,66 +77,53 @@ mkdir -p "$DRIVER_DIR"
 cd "$DRIVER_DIR"
 
 echo ""
-echo "[ Info ] Downloading NPU driver packages..."
+echo -e "${CYAN}[ Info ]${NC} Downloading NPU driver packages..."
 
-if [ "$UBUNTU_VERSION" == "22.04" ]; then
-    LEVEL_ZERO_PKG="level-zero_${LEVEL_ZERO_VERSION}+u22.04_amd64.deb"
-    NPU_DRIVER_PKG="linux-npu-driver-v1.23.0.20250827-17270089246-ubuntu2204.tar.gz"
-elif [ "$UBUNTU_VERSION" == "24.04" ]; then
-    LEVEL_ZERO_PKG="level-zero_${LEVEL_ZERO_VERSION}+u24.04_amd64.deb"
-    NPU_DRIVER_PKG="linux-npu-driver-v1.23.0.20250827-17270089246-ubuntu2404.tar.gz"
-fi
-
-# Download Level Zero if not present
-if [ -f "$LEVEL_ZERO_PKG" ]; then
-    echo "[ Info ] $LEVEL_ZERO_PKG already downloaded, skipping"
-else
-    wget -q --show-progress "https://github.com/oneapi-src/level-zero/releases/download/v${LEVEL_ZERO_VERSION}/${LEVEL_ZERO_PKG}"
-fi
+NPU_DRIVER_PKG="linux-npu-driver-${NPU_DRIVER_VERSION}.${NPU_DRIVER_BUILD}-ubuntu2404.tar.gz"
 
 # Download NPU driver package if not present
 if [ -f "$NPU_DRIVER_PKG" ]; then
-    echo "[ Info ] $NPU_DRIVER_PKG already downloaded, skipping"
+    echo -e "${CYAN}[ Info ]${NC} $NPU_DRIVER_PKG already downloaded, skipping"
 else
     wget -q --show-progress "https://github.com/intel/linux-npu-driver/releases/download/${NPU_DRIVER_VERSION}/${NPU_DRIVER_PKG}"
 fi
 
 if [[ -z "$(find . -maxdepth 1 -name "linux-npu-driver-*" -type d -print -quit)" ]]; then
-    echo "[ Info ] Extracting NPU driver package..."
+    echo -e "${CYAN}[ Info ]${NC} Extracting NPU driver package..."
     tar -xf "${NPU_DRIVER_PKG}"
 fi
 
-echo ""
-echo "[ Info ] Installing dependencies..."
+echo -e "${CYAN}[ Info ]${NC} Installing dependencies..."
 sudo apt-get update -qq
-sudo apt --fix-broken install -y -qq
+sudo apt --fix-broken install -y --allow-downgrades -qq 2>/dev/null
 sudo apt-get install -y -qq libtbb12
 
-echo ""
-echo "[ Info ] Installing NPU driver packages..."
+echo -e "${CYAN}[ Info ]${NC} Installing NPU driver packages..."
 sudo dpkg -i ./*.deb 2>/dev/null || sudo apt-get install -f -y -qq
 
-# Verify installation
+# Install Level Zero (libze1) from intel-graphics PPA snapshot.
+# This must be installed after the main NPU .deb files.
 echo ""
-if ls /dev/accel/accel* >/dev/null 2>&1; then
-    echo -e "${GREEN}[ Success ] NPU driver installed successfully${NC}"
-    NPU_DEVICES=$(find /dev/accel -name "accel*" -type c 2>/dev/null | wc -l)
-    echo "[ Info ] NPU devices detected: ${NPU_DEVICES}"
+echo -e "${CYAN}[ Info ]${NC} Installing Level Zero ${LEVEL_ZERO_VERSION}..."
+if [ -f "$LEVEL_ZERO_PKG" ]; then
+    echo -e "${CYAN}[ Info ]${NC} $LEVEL_ZERO_PKG already downloaded, skipping"
 else
-    echo "[ Warning ] Driver installed but NPU devices not detected"
-    echo "[ Info ] This requires a system reboot"
+    wget -q --show-progress "${LEVEL_ZERO_URL}"
 fi
+sudo dpkg -i "${LEVEL_ZERO_PKG}" 2>/dev/null || {
+    echo -e "${CYAN}[ Info ]${NC} Resolving Level Zero conflict..."
+    sudo dpkg --purge --force-remove-reinstreq level-zero level-zero-devel 2>/dev/null || true
+    sudo dpkg -i "${LEVEL_ZERO_PKG}"
+}
 
 echo ""
-echo "Installation Complete"
-echo "===================="
-echo ""
-echo "Next Steps:"
-echo "1. Verify NPU devices: ls /dev/accel/"
-echo "2. Check kernel module: lsmod | grep intel_vpu"
-echo "3. Download and convert your models."
-echo "4. Download and convert your videos."
-echo "5. Run Edge Workloads and Benchmarks pipelines with NPU acceleration"
-echo ""
+echo -e "${CYAN}[ Info ]${NC} Adding user ${ORIGINAL_USER} to video and render groups..."
+sudo usermod -aG video "${ORIGINAL_USER}"
+sudo usermod -aG render "${ORIGINAL_USER}"
 
-exit 0
+if ls /dev/accel/accel* >/dev/null 2>&1; then
+    echo -e "${GREEN}[ Success ]${NC} NPU driver installed successfully"
+else
+    echo -e "${YELLOW}[ Warning ]${NC} Driver installed but NPU devices not detected"
+    echo -e "${CYAN}[ Info ]${NC} This requires a system reboot"
+fi

@@ -8,169 +8,132 @@
 # Quick validation of system requirements before installation
 # ==============================================================================
 
-echo "========================================================"
-echo "Edge Workloads and Benchmarks System Compatibility Check"
-echo "========================================================"
-echo ""
-
-# Color-coding
-print_pass() { echo -e "\e[32m[ Pass ]\e[0m $1"; }
-print_fail() { echo -e "\e[31m[ Fail ]\e[0m $1"; }
-print_warn() { echo -e "\e[33m[ Warning ]\e[0m $1"; }
-print_info() { echo -e "\e[34m[ Info ]\e[0m $1"; }
+# Status prefixes (colored when stdout is a terminal)
+if [ -t 1 ]; then
+    _G="\033[0;32m"; _R="\033[0;31m"; _Y="\033[0;33m"; _B="\033[0;34m"; _N="\033[0m"
+else
+    _G=""; _R=""; _Y=""; _B=""; _N=""
+fi
+print_pass() { echo -e "${_G}[ Pass ]${_N} $1"; }
+print_fail() { echo -e "${_R}[ Fail ]${_N} $1"; }
+print_warn() { echo -e "${_Y}[ Warn ]${_N} $1"; }
+print_info() { echo -e "${_B}[ Info ]${_N} $1"; }
 
 WARNINGS=0
 ERRORS=0
 
-# OS Version
-echo "Checking Operating System..."
+# ── OS ────────────────────────────────────────────────────────────────────────
+KERNEL_VER=$(uname -r)
 if [ -f /etc/os-release ]; then
     . /etc/os-release
     if [[ "$ID" == "ubuntu" ]]; then
         if [[ "$VERSION_ID" == "22.04" || "$VERSION_ID" == "24.04" ]]; then
-            print_pass "Ubuntu $VERSION_ID detected"
+            print_pass "OS:         Ubuntu $VERSION_ID, Kernel $KERNEL_VER"
         else
-            print_warn "Ubuntu $VERSION_ID detected. Recommendation: 22.04 or 24.04"
+            print_warn "OS:         Ubuntu $VERSION_ID, Kernel $KERNEL_VER (recommended: 22.04 or 24.04)"
             WARNINGS=$((WARNINGS + 1))
         fi
     else
-        print_warn "Non-Ubuntu system detected: $NAME $VERSION_ID"
+        print_warn "OS:         $NAME $VERSION_ID, Kernel $KERNEL_VER (non-Ubuntu)"
         WARNINGS=$((WARNINGS + 1))
     fi
 else
-    print_fail "Cannot detect operating system"
+    print_fail "OS:         cannot detect"
     ERRORS=$((ERRORS + 1))
 fi
-echo ""
 
-# Docker Installation
-echo "Checking Docker..."
+# ── Docker ────────────────────────────────────────────────────────────────────
 if command -v docker >/dev/null 2>&1; then
     DOCKER_VERSION=$(docker --version 2>/dev/null | cut -d' ' -f3 | tr -d ',')
-    print_pass "Docker installed: $DOCKER_VERSION"
-    
-    # Test docker permissions
     if docker run --rm hello-world >/dev/null 2>&1; then
-        print_pass "Docker is functional"
+        print_pass "Docker:     $DOCKER_VERSION (functional)"
     else
-        print_fail "Docker installed but cannot run containers"
-        print_info "Try: sudo usermod -aG docker \$USER && newgrp docker"
+        print_fail "Docker:     $DOCKER_VERSION (cannot run containers — try: sudo usermod -aG docker \$USER)"
         ERRORS=$((ERRORS + 1))
     fi
 else
-    print_fail "Docker not installed"
-    print_info "Install: https://docs.docker.com/engine/install/ubuntu/"
+    print_fail "Docker:     not installed"
     ERRORS=$((ERRORS + 1))
 fi
-echo ""
 
-# GPU Driver
-echo "Checking GPU..."
+# ── GPU / OpenCL ──────────────────────────────────────────────────────────────
 if command -v clinfo >/dev/null 2>&1; then
-    GPU_VERSION=$(clinfo 2>/dev/null | grep -m1 "Driver Version" | awk '{print $3}' || echo "unknown")
-    if [ "$GPU_VERSION" != "unknown" ] && [ -n "$GPU_VERSION" ]; then
-        print_pass "OpenCL detected: $GPU_VERSION"
+    GPU_VERSION=$(clinfo 2>/dev/null | grep -m1 "Driver Version" | awk '{print $3}' || echo "")
+    if [ -n "$GPU_VERSION" ]; then
+        COMPUTE_DEVICES=$(clinfo 2>/dev/null | grep -c "Device Type.*GPU" || echo "0")
+        [ "$COMPUTE_DEVICES" -eq 0 ] && COMPUTE_DEVICES=$(find /dev/dri -name "render*" -type c 2>/dev/null | wc -l)
+        print_pass "GPU:        Driver Version $GPU_VERSION ($COMPUTE_DEVICES compute device(s))"
     else
-        print_warn "clinfo installed but no devices found"
+        print_warn "GPU:        clinfo present but no devices found"
         WARNINGS=$((WARNINGS + 1))
     fi
 else
-    print_warn "clinfo not installed. Please install with sudo apt install clinfo"
+    print_warn "GPU:        clinfo not installed (sudo apt install clinfo)"
     WARNINGS=$((WARNINGS + 1))
 fi
 
-# Check for GPU render devices
-if ls /dev/dri/render* >/dev/null 2>&1; then
-    RENDER_DEVICES=$(find /dev/dri -name "render*" -type c 2>/dev/null | wc -l)
-    print_pass "GPU render devices found: $RENDER_DEVICES device(s)"
+# ── NPU ───────────────────────────────────────────────────────────────────────
+if ls /dev/accel/accel* >/dev/null 2>&1; then
+    NPU_DEVICES=$(find /dev/accel -name "accel*" -type c 2>/dev/null | wc -l)
+    if dpkg -l | grep -q "intel-driver-compiler-npu"; then
+        NPU_VERSION=$(dpkg -l | grep intel-driver-compiler-npu | awk '{print $3}' | cut -d. -f1-3)
+        print_pass "NPU:        Driver Version $NPU_VERSION ($NPU_DEVICES compute device(s))"
+    else
+        print_warn "NPU:        $NPU_DEVICES device(s), driver not installed"
+        WARNINGS=$((WARNINGS + 1))
+    fi
 else
-    print_warn "No GPU render devices found at /dev/dri/render*"
-    WARNINGS=$((WARNINGS + 1))
+    print_info "NPU: not detected (optional)"
 fi
-echo ""
 
-# VAAPI Driver
-echo "Checking VA-API..."
+# ── VA-API ────────────────────────────────────────────────────────────────────
 if command -v vainfo >/dev/null 2>&1; then
     VAAPI_OUTPUT=$(vainfo 2>&1)
     if echo "$VAAPI_OUTPUT" | grep -q "VAProfileH264"; then
         VAAPI_VERSION=$(echo "$VAAPI_OUTPUT" | grep "libva info: VA-API version" | awk '{print $NF}')
-        print_pass "VA-API functional: $VAAPI_VERSION"
+        VAAPI_PROFILES=$(echo "$VAAPI_OUTPUT" | grep -c "VAProfile" || echo "0")
+        print_pass "VA-API:     Driver Version $VAAPI_VERSION ($VAAPI_PROFILES profiles detected)"
     else
-        print_warn "vainfo installed but VA-API may not be functional"
+        print_warn "VA-API:     vainfo present but may not be functional"
         WARNINGS=$((WARNINGS + 1))
     fi
 else
-    print_warn "vainfo not installed. Please install with sudo apt install vainfo"
+    print_warn "VA-API:     vainfo not installed (sudo apt install vainfo)"
     WARNINGS=$((WARNINGS + 1))
 fi
-echo ""
 
-# NPU (Optional)
-echo "Checking NPU..."
-if ls /dev/accel/accel* >/dev/null 2>&1; then
-    NPU_DEVICES=$(find /dev/accel -name "accel*" -type c 2>/dev/null | wc -l)
-    print_pass "NPU device(s) detected: $NPU_DEVICES device(s)"
-
-    if dpkg -l | grep -q "intel-driver-compiler-npu"; then
-        NPU_VERSION=$(dpkg -l | grep intel-driver-compiler-npu | awk '{print $3}')
-        print_pass "NPU driver installed: $NPU_VERSION"
-    else
-        print_warn "NPU hardware detected but driver not installed"
-        print_info "Install NPU drivers with: ./setup/install_npu_driver.sh"
-        WARNINGS=$((WARNINGS + 1))
-    fi
-else
-    print_info "No NPU detected (optional)"
-fi
-echo ""
-
-# System Resources
-echo "Checking System Resources..."
+# ── System Resources ──────────────────────────────────────────────────────────
 TOTAL_RAM_GB=$(free -g | awk '/^Mem:/{print $2}')
-if [ "$TOTAL_RAM_GB" -ge 8 ]; then
-    print_pass "RAM: ${TOTAL_RAM_GB}GB (8GB+ recommended)"
-else
-    print_warn "RAM: ${TOTAL_RAM_GB}GB (8GB+ recommended)"
-    WARNINGS=$((WARNINGS + 1))
-fi
-
-# Disk Space
 AVAILABLE_SPACE=$(df -h . | tail -n1 | awk '{print $4}')
 AVAILABLE_SPACE_NUM=$(echo "$AVAILABLE_SPACE" | grep -oP '^\d+' || echo "0")
 AVAILABLE_SPACE_UNIT=$(echo "$AVAILABLE_SPACE" | grep -oP '[A-Z]+$' || echo "")
 
-if [ "$AVAILABLE_SPACE_UNIT" = "G" ] && [ "$AVAILABLE_SPACE_NUM" -ge 11 ]; then
-    print_pass "Available disk space: ${AVAILABLE_SPACE} (11GB+ recommended)"
-elif [ "$AVAILABLE_SPACE_UNIT" = "T" ]; then
-    print_pass "Available disk space: ${AVAILABLE_SPACE} (11GB+ recommended)"
+ram_ok=true; disk_ok=true
+[ "$TOTAL_RAM_GB" -lt 8 ] 2>/dev/null && ram_ok=false
+if [ "$AVAILABLE_SPACE_UNIT" = "G" ] && [ "$AVAILABLE_SPACE_NUM" -lt 11 ]; then disk_ok=false; fi
+
+if $ram_ok && $disk_ok; then
+    print_pass "Resources:  ${TOTAL_RAM_GB}GB RAM, ${AVAILABLE_SPACE} disk"
 else
-    print_warn "Available disk space: ${AVAILABLE_SPACE} (11GB+ recommended for models and media)"
-    WARNINGS=$((WARNINGS + 1))
+    if ! $ram_ok; then
+        print_warn "RAM: ${TOTAL_RAM_GB}GB (8GB+ recommended)"
+        WARNINGS=$((WARNINGS + 1))
+    fi
+    if ! $disk_ok; then
+        print_warn "Disk: ${AVAILABLE_SPACE} (11GB+ recommended)"
+        WARNINGS=$((WARNINGS + 1))
+    fi
 fi
 
-echo ""
-echo "================================================"
-echo "Compatibility Check Summary"
-echo "================================================"
+# ── Summary ───────────────────────────────────────────────────────────────────
 if [ $ERRORS -eq 0 ] && [ $WARNINGS -eq 0 ]; then
-    print_pass "All checks passed. System is ready for Edge Workloads and Benchmarks installation."
-    echo ""
-    echo "Next steps:"
-    echo "  1. setup/install_prerequisites.sh [--reinstall-gpu-driver=yes] [--reinstall-npu-driver=yes]"
-    echo "  2. cd model-conversion/ && ./convert_models.sh"
-    echo "  3. cd media-downloader && ./download_and_encode.sh"
-    echo "  4. ./benchmark_edge_pipelines.sh -p light -n 8 -d GPU -c GPU -i 120"
     exit 0
 elif [ $ERRORS -eq 0 ]; then
-    print_warn "System check completed with $WARNINGS warning(s)"
     echo ""
-    echo "You can proceed with installation, but some features may be limited."
-    echo "Review the warnings listed above."
+    print_warn "Completed with $WARNINGS warning(s) — some features may be limited."
     exit 0
 else
-    print_fail "System check failed with $ERRORS error(s) and $WARNINGS warning(s)"
     echo ""
-    echo "Please resolve the errors above before proceeding with installation."
+    print_fail "Failed with $ERRORS error(s) and $WARNINGS warning(s) — resolve before proceeding."
     exit 1
 fi

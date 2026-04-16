@@ -4,16 +4,19 @@ models/
 datasets/
 source-models/
 
-results/*/
-results/**/*.log
-results/**/*.csv
+collateral/results/*/
+collateral/results/**/*.log
+collateral/results/**/*.csv
+collateral/reports/
 runs/
 
-html/data.json
-html/system_info.json
+tools/html/data.json
+tools/html/system_info.json
+tools/html/.chartjs_cache.js
 
 setup/drivers/gpu/*
 setup/drivers/npu/*
 
 __pycache__/
-venv/
+venv*/
+coco.yaml
