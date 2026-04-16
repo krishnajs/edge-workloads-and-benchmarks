@@ -82,14 +82,14 @@ transcode() {
 
     if [[ "${codec}" == "h265" ]]; then
         parser="h265parse"; ext="h265"
-        outdir="hevc$([ "${res}" == "4k" ] && echo "_4k" || true)"
+        if [[ "${res}" == "4k" ]]; then outdir="hevc_4k"; else outdir="hevc"; fi
         encoder="vah265enc"
-        [[ "${res}" == "4k" ]] && bitrate=8000 || bitrate=2000
+        if [[ "${res}" == "4k" ]]; then bitrate=8000; else bitrate=2000; fi
     else
         parser="h264parse"; ext="h264"
-        outdir="avc$([ "${res}" == "4k" ] && echo "_4k" || true)"
+        if [[ "${res}" == "4k" ]]; then outdir="avc_4k"; else outdir="avc"; fi
         encoder="vah264enc"
-        [[ "${res}" == "4k" ]] && bitrate=12000 || bitrate=3000
+        if [[ "${res}" == "4k" ]]; then bitrate=12000; else bitrate=3000; fi
     fi
 
     local name="${in%.mp4}"

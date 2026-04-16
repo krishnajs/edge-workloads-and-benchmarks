@@ -346,8 +346,8 @@ else
     #ThisDockerCommand=("${DockerCommand[@]}" --name "${ContainerName}" intel/dlstreamer:2026.0.0-ubuntu24)
     
     # Run the pipelines
-    # shellcheck disable=SC2086
     sleep 1
+    # shellcheck disable=SC2086
     timeout --preserve-status "${Duration}s" "${ThisDockerCommand[@]}" gst-launch-1.0 ${Commands[0]} 2>&1 | grep --line-buffered -v "longjmp causes uninitialized stack frame" | tee "${LogFile}"
 fi
 

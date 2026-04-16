@@ -256,7 +256,8 @@ collect_power()
                     continue
                 fi
                 local base=${label_file%_label}
-                local sname=$(basename "$base")
+                local sname
+                sname=$(basename "$base")
                 if [[ "$sname" == energy* ]] && [[ -f "${base}_input" ]]; then
                     sensor_path="${base}_input"; sensor_type="energy"; sensor_source="hwmon"; break 2
                 elif [[ -f "${base}_input" ]]; then
@@ -288,7 +289,8 @@ collect_power()
         SENSOR_SOURCES[$idx]="$sensor_source"
     done
 
-    local samples=$(( Duration / Interval ))
+    local samples
+    samples=$(( Duration / Interval ))
 
     echo "[ Info ] Monitoring for ${Duration}s after a ${Delay}s delay" >&2
     echo "" >&2
@@ -314,7 +316,8 @@ collect_power()
             local source_type="${SENSOR_SOURCES[$idx]:-unavailable}"
 
             if [[ "${SENSOR_TYPES[$idx]}" == "energy" && -n "${SENSOR_PATHS[$idx]}" ]]; then
-                local end_val=$(<"${SENSOR_PATHS[$idx]}")
+                local end_val
+                end_val=$(<"${SENSOR_PATHS[$idx]}")
                 local diff=$(( end_val - start_vals[$idx] ))
                 if (( diff < 0 )); then
                     diff=$(( diff + 4294967296 ))
@@ -322,7 +325,8 @@ collect_power()
                 power=$(awk -v diff="$diff" -v interval="$Interval" \
                     'BEGIN { printf "%.2f", (diff/1000000)/interval }')
             elif [[ "${SENSOR_TYPES[$idx]}" == "power" && -n "${SENSOR_PATHS[$idx]}" ]]; then
-                local val=$(<"${SENSOR_PATHS[$idx]}")
+                local val
+                val=$(<"${SENSOR_PATHS[$idx]}")
                 power=$(awk -v val="$val" 'BEGIN { printf "%.2f", val/1000000 }')
             fi
 
