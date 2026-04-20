@@ -107,6 +107,54 @@ SPDX-License-Identifier: Apache-2.0
     </div>
   </div>
 
+  <!-- Profile Benchmarks Section -->
+  <div id="profileSection" class="card profile-section" style="display: none;">
+    <div class="profile-header-container">
+      <h2>Profile Benchmarks (OpenVINO benchmark_app)</h2>
+      <div id="profileSelector" class="profile-selector"></div>
+    </div>
+    <p class="profile-description" id="profileDescription"></p>
+
+    <div class="profile-stats" id="profileStats"></div>
+
+    <div class="profile-charts-grid">
+      <div class="chart-item">
+        <h2 class="chart-title">Latency by Model (ms)</h2>
+        <div class='chart-container'>
+          <canvas id='profileLatencyChart'></canvas>
+        </div>
+        <div class="chart-footer">Lower is better — dashed lines show targets</div>
+      </div>
+      <div class="chart-item">
+        <h2 class="chart-title">Throughput by Model (FPS)</h2>
+        <div class='chart-container'>
+          <canvas id='profileThroughputChart'></canvas>
+        </div>
+        <div class="chart-footer">Higher is better — dashed lines show targets</div>
+      </div>
+    </div>
+
+    <div class='table-container' style="margin-top: 1rem;">
+      <table id='profileTable'>
+        <thead>
+          <tr>
+            <th>Benchmark</th>
+            <th>Model</th>
+            <th>Device</th>
+            <th>Precision</th>
+            <th>Median Latency (ms)</th>
+            <th>Target Latency (ms)</th>
+            <th>Throughput (FPS)</th>
+            <th>Target FPS</th>
+            <th>Result</th>
+            <th>Rationale</th>
+          </tr>
+        </thead>
+        <tbody id='profileRows'></tbody>
+      </table>
+    </div>
+  </div>
+
   <div class='card raw-data-card'>
     <h2>Additional Information</h2>
     <details>

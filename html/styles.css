@@ -449,6 +449,120 @@ pre {
   margin: var(--spacing-md) 0;
 }
 
+/* ── Profile Benchmark Styles ─────────────────────────────────────── */
+
+.profile-section {
+  grid-column: 1 / -1;
+}
+
+.profile-header-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-md);
+}
+
+.profile-header-container h2 {
+  margin: 0;
+}
+
+.profile-selector {
+  display: flex;
+  gap: 0;
+  background: var(--bg-tertiary);
+  border-radius: var(--border-radius-sm);
+  padding: 2px;
+  flex-wrap: wrap;
+}
+
+.profile-btn {
+  padding: 6px 14px;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  border-radius: calc(var(--border-radius-sm) - 2px);
+  transition: background 0.2s ease, color 0.2s ease;
+  font-family: 'Inter', sans-serif;
+  white-space: nowrap;
+}
+
+.profile-btn:hover {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.profile-btn.active {
+  background: var(--accent-blue);
+  color: #000;
+}
+
+.profile-description {
+  font-size: 0.9rem;
+  opacity: 0.8;
+  margin-bottom: var(--spacing-md);
+}
+
+.profile-stats {
+  display: flex;
+  gap: var(--spacing-md);
+  flex-wrap: wrap;
+  margin-bottom: var(--spacing-lg);
+}
+
+.profile-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: var(--bg-tertiary);
+  padding: var(--spacing-sm) var(--spacing-lg);
+  border-radius: var(--border-radius-sm);
+  min-width: 90px;
+}
+
+.profile-stat-value {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.profile-stat-label {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.profile-stat-pass .profile-stat-value {
+  color: var(--chart-green);
+}
+
+.profile-stat-fail .profile-stat-value {
+  color: #ef4444;
+}
+
+.profile-charts-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--spacing-lg);
+}
+
+@media (max-width: 1024px) {
+  .profile-charts-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.rationale-cell {
+  font-size: 0.8rem;
+  opacity: 0.85;
+  max-width: 220px;
+}
+
 /* Responsive design */
 @media (max-width: 768px) {
   body {

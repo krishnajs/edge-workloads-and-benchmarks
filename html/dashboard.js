@@ -10,13 +10,17 @@ class PipelineDashboard {
   constructor() {
     this.summary = [];
     this.rawData = [];
+    this.profiles = [];
     this.systemInfo = null;
     this.bestConfigMode = 'performance'; // 'performance' or 'efficiency'
+    this.activeProfileIndex = 0;
     this.charts = {
       throughput: null,
       theoretical: null,
       efficiency: null,
-      power: null
+      power: null,
+      profileLatency: null,
+      profileThroughput: null
     };
     
     // Chart color configuration
@@ -38,10 +42,15 @@ class PipelineDashboard {
       await this.loadSystemInfo();
       this.updateDashboardTitle();
       this.setupToggleListeners();
-      this.renderTable();
-      this.renderCharts();
+      if (this.summary.length > 0) {
+        this.renderTable();
+        this.renderCharts();
+      }
       this.renderSystemInfo();
       this.renderRawData();
+      if (this.profiles.length > 0) {
+        this.renderProfiles();
+      }
     } catch (error) {
       this.showError('Failed to initialize dashboard: ' + error.message);
     }
@@ -76,6 +85,7 @@ class PipelineDashboard {
         const data = await response.json();
         this.summary = data.summary || [];
         this.rawData = data.raw || [];
+        this.profiles = data.profiles || [];
       } else {
         // Fallback to embedded data if available
         if (typeof SUMMARY !== 'undefined' && typeof RAW !== 'undefined') {
@@ -86,7 +96,7 @@ class PipelineDashboard {
         }
       }
       
-      if (this.summary.length === 0) {
+      if (this.summary.length === 0 && this.profiles.length === 0) {
         throw new Error('No benchmark data found');
       }
     } catch (error) {
@@ -800,6 +810,236 @@ class PipelineDashboard {
     if (rawDump && this.rawData.length > 0) {
       rawDump.textContent = JSON.stringify(this.rawData, null, 2);
     }
+  }
+
+  // ── Profile Benchmark Rendering ──────────────────────────────────────
+
+  renderProfiles() {
+    const section = document.getElementById('profileSection');
+    if (!section) return;
+    section.style.display = 'block';
+
+    this.renderProfileSelector();
+    this.renderActiveProfile();
+  }
+
+  renderProfileSelector() {
+    const container = document.getElementById('profileSelector');
+    if (!container) return;
+
+    const buttons = this.profiles.map((p, i) => {
+      const active = i === this.activeProfileIndex ? ' active' : '';
+      return `<button class="profile-btn${active}" data-profile-index="${i}">${p.profile}</button>`;
+    }).join('');
+    container.innerHTML = buttons;
+
+    container.querySelectorAll('.profile-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        this.activeProfileIndex = parseInt(btn.dataset.profileIndex, 10);
+        container.querySelectorAll('.profile-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        this.renderActiveProfile();
+      });
+    });
+  }
+
+  renderActiveProfile() {
+    const profile = this.profiles[this.activeProfileIndex];
+    if (!profile) return;
+
+    this.renderProfileStats(profile);
+    this.renderProfileTable(profile);
+    this.renderProfileCharts(profile);
+  }
+
+  renderProfileStats(profile) {
+    const statsEl = document.getElementById('profileStats');
+    const descEl = document.getElementById('profileDescription');
+    if (!statsEl) return;
+
+    const total = profile.total_benchmarks || 0;
+    const passed = profile.passed || 0;
+    const failed = profile.failed || 0;
+    const devices = (profile.devices || []).join(', ') || 'N/A';
+
+    statsEl.innerHTML = `
+      <div class="profile-stat">
+        <span class="profile-stat-value">${total}</span>
+        <span class="profile-stat-label">Benchmarks</span>
+      </div>
+      <div class="profile-stat profile-stat-pass">
+        <span class="profile-stat-value">${passed}</span>
+        <span class="profile-stat-label">Passed</span>
+      </div>
+      <div class="profile-stat profile-stat-fail">
+        <span class="profile-stat-value">${failed}</span>
+        <span class="profile-stat-label">Failed</span>
+      </div>
+      <div class="profile-stat">
+        <span class="profile-stat-value">${devices}</span>
+        <span class="profile-stat-label">Device(s)</span>
+      </div>
+    `;
+
+    if (descEl) {
+      descEl.textContent = '';
+    }
+  }
+
+  renderProfileTable(profile) {
+    const tbody = document.getElementById('profileRows');
+    if (!tbody) return;
+
+    const rows = (profile.benchmarks || []).map(b => {
+      const latency = b.latency_median_ms != null ? `${parseFloat(b.latency_median_ms).toFixed(2)}` : 'N/A';
+      const targetLat = b.target_latency_ms != null ? `≤ ${b.target_latency_ms}` : '—';
+      const fps = b.throughput_fps != null ? `${parseFloat(b.throughput_fps).toFixed(2)}` : 'N/A';
+      const targetFps = b.target_fps != null ? `≥ ${b.target_fps}` : '—';
+
+      const lp = b.latency_pass || '';
+      const fp = b.throughput_pass || '';
+      let result;
+      if (lp === 'FAIL' || fp === 'FAIL') {
+        result = '<span class="status-error">FAIL</span>';
+      } else if (lp === 'PASS' || fp === 'PASS') {
+        result = '<span class="status-success">PASS</span>';
+      } else {
+        result = '<span class="status-warning">—</span>';
+      }
+
+      const latClass = lp === 'PASS' ? 'status-success' : lp === 'FAIL' ? 'status-error' : '';
+      const fpsClass = fp === 'PASS' ? 'status-success' : fp === 'FAIL' ? 'status-error' : '';
+
+      return `<tr>
+        <td>${b.benchmark || ''}</td>
+        <td><code>${b.model || ''}</code></td>
+        <td>${b.device || ''}</td>
+        <td>${b.precision || ''}</td>
+        <td class="${latClass}">${latency}</td>
+        <td>${targetLat}</td>
+        <td class="${fpsClass}">${fps}</td>
+        <td>${targetFps}</td>
+        <td>${result}</td>
+        <td class="rationale-cell">${b.rationale || ''}</td>
+      </tr>`;
+    }).join('');
+
+    tbody.innerHTML = rows;
+  }
+
+  renderProfileCharts(profile) {
+    const benchmarks = (profile.benchmarks || []).filter(b => b.model);
+    if (!benchmarks.length) return;
+
+    const labels = benchmarks.map(b => b.benchmark || b.model);
+
+    // ── Latency chart ──
+    const latencyActual = benchmarks.map(b => b.latency_median_ms);
+    const latencyTarget = benchmarks.map(b => b.target_latency_ms);
+
+    if (this.charts.profileLatency) this.charts.profileLatency.destroy();
+    const latCtx = document.getElementById('profileLatencyChart');
+    if (latCtx) {
+      this.charts.profileLatency = new Chart(latCtx, {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [
+            {
+              label: 'Median Latency (ms)',
+              data: latencyActual,
+              backgroundColor: benchmarks.map(b =>
+                b.latency_pass === 'PASS' ? '#22c55e' : b.latency_pass === 'FAIL' ? '#ef4444' : '#6b7280'
+              ),
+              borderWidth: 0,
+              order: 2
+            },
+            {
+              label: 'Target Latency (ms)',
+              data: latencyTarget,
+              type: 'line',
+              borderColor: '#fbbf24',
+              borderDash: [6, 4],
+              borderWidth: 2,
+              pointRadius: 4,
+              pointBackgroundColor: '#fbbf24',
+              fill: false,
+              order: 1
+            }
+          ]
+        },
+        options: this.profileChartOptions('Latency (ms)')
+      });
+    }
+
+    // ── Throughput chart ──
+    const fpsActual = benchmarks.map(b => b.throughput_fps);
+    const fpsTarget = benchmarks.map(b => b.target_fps);
+
+    if (this.charts.profileThroughput) this.charts.profileThroughput.destroy();
+    const fpsCtx = document.getElementById('profileThroughputChart');
+    if (fpsCtx) {
+      this.charts.profileThroughput = new Chart(fpsCtx, {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [
+            {
+              label: 'Throughput (FPS)',
+              data: fpsActual,
+              backgroundColor: benchmarks.map(b =>
+                b.throughput_pass === 'PASS' ? '#22c55e' : b.throughput_pass === 'FAIL' ? '#ef4444' : '#6b7280'
+              ),
+              borderWidth: 0,
+              order: 2
+            },
+            {
+              label: 'Target FPS',
+              data: fpsTarget,
+              type: 'line',
+              borderColor: '#fbbf24',
+              borderDash: [6, 4],
+              borderWidth: 2,
+              pointRadius: 4,
+              pointBackgroundColor: '#fbbf24',
+              fill: false,
+              order: 1
+            }
+          ]
+        },
+        options: this.profileChartOptions('Throughput (FPS)')
+      });
+    }
+  }
+
+  profileChartOptions(yTitle) {
+    return {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          labels: { color: '#eee', font: { size: 11 } }
+        },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => `${ctx.dataset.label}: ${ctx.parsed.y != null ? ctx.parsed.y.toFixed(2) : 'N/A'}`
+          }
+        }
+      },
+      scales: {
+        x: {
+          ticks: { color: '#eee', font: { size: 10 }, maxRotation: 45, minRotation: 0 },
+          grid: { color: '#222' }
+        },
+        y: {
+          ticks: { color: '#eee' },
+          grid: { color: '#222' },
+          beginAtZero: true,
+          grace: '10%',
+          title: { display: true, text: yTitle, color: '#eee', font: { size: 12, weight: 'bold' } }
+        }
+      }
+    };
   }
 
   renderSystemInfo() {

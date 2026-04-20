@@ -50,7 +50,7 @@ help:
 	@echo "make list-profiles                             - List available benchmark profiles"
 	@echo ""
 	@echo "# Generate results"
-	@echo "make html-report      - Generate HTML dashboard from benchmark results. Requires serve-report to view locally."
+	@echo "make html-report      - Generate HTML dashboard from benchmark and profile results. Requires serve-report to view locally."
 	@echo "make serve-report     - Host HTML dashboard locally (default: PORT=8000 HOSTIP=localhost)"
 	@echo ""
 	@echo "#Optional: display pipeline demo (requires display access permissions)"
