@@ -19,6 +19,10 @@ CLASSIFY ?= CPU
 DURATION ?= 120
 CORES ?=
 
+# Profile-based benchmarking variables
+PROFILE ?=
+DEVICE ?=
+
 # HTML generation and serving variables
 PORT ?= 8000
 HOSTIP ?=127.0.0.1
@@ -40,6 +44,11 @@ help:
 	@echo "make benchmarks       - Sweeps through all benchmark configurations. (optional: CORES={core-type} DURATION={seconds})"
 	@echo "sudo make benchmarks  - Recommended: Adds power and efficiency metrics to report. Requires root permissions to read power sensors"
 	@echo ""
+	@echo "# Profile-based Benchmarks (OpenVINO benchmark_app)"
+	@echo "make benchmark-profile PROFILE=<yaml>          - Run benchmarks from a YAML profile (DEVICE={CPU,GPU,NPU} DURATION={seconds})"
+	@echo "make profile-models    PROFILE=<yaml>          - Download models for a profile without running benchmarks"
+	@echo "make list-profiles                             - List available benchmark profiles"
+	@echo ""
 	@echo "# Generate results"
 	@echo "make html-report      - Generate HTML dashboard from benchmark results. Requires serve-report to view locally."
 	@echo "make serve-report     - Host HTML dashboard locally (default: PORT=8000 HOSTIP=localhost)"
@@ -59,6 +68,7 @@ help:
 	@echo ""
 	@echo "Example: make prereqs INCLUDE_GPU=True INCLUDE_NPU=True"
 	@echo "Example: make benchmarks CORES=ecore DURATION=120"
+	@echo "Example: make benchmark-profile PROFILE=profiles/aam-avionics.yaml DEVICE=GPU"
 	@echo "Example: make display CONFIG=light DETECT=GPU CLASSIFY=NPU CORES='ecore'"
 	@echo "Example: make serve-report PORT=8000"
 
@@ -155,6 +165,65 @@ serve-report:
 	@echo "[ Info ] Press Ctrl+C to stop the server"
 	@cd html && python3 -m http.server $(PORT) --bind $(HOSTIP)
 
+# ──────────────────────────────────────────────────────────────────────────
+# Profile-based Benchmarks (OpenVINO benchmark_app)
+# ──────────────────────────────────────────────────────────────────────────
+
+.PHONY: benchmark-profile
+benchmark-profile:
+	@if [ -z "$(PROFILE)" ]; then \
+		echo ""; \
+		echo "[ Error ] Please specify a profile YAML file:"; \
+		echo "  make benchmark-profile PROFILE=profiles/aam-avionics.yaml"; \
+		echo ""; \
+		echo "Available profiles:"; \
+		ls -1 profiles/*.yaml 2>/dev/null | sed 's/^/  /' || echo "  No profiles found in profiles/"; \
+		echo ""; \
+		exit 1; \
+	fi
+	@if [ ! -f "$(PROFILE)" ]; then \
+		echo "[ Error ] Profile not found: $(PROFILE)"; \
+		exit 1; \
+	fi
+	@if [ ! -d model-conversion/venv ]; then \
+		echo "[ Error ] Virtual environment not found. Run 'make models' first to create the venv."; \
+		exit 1; \
+	fi
+	@echo "[ Info ] Running profile benchmark: $(PROFILE) $(if $(DEVICE),(device=$(DEVICE)),)"
+	@. model-conversion/venv/bin/activate && \
+	python3 profiles/run_profile.py \
+		--profile "$(PROFILE)" \
+		$(if $(DEVICE),--device $(DEVICE),) \
+		$(if $(filter-out 120,$(DURATION)),--duration $(DURATION),)
+
+.PHONY: profile-models
+profile-models:
+	@if [ -z "$(PROFILE)" ]; then \
+		echo "[ Error ] Please specify a profile: make profile-models PROFILE=profiles/aam-avionics.yaml"; \
+		exit 1; \
+	fi
+	@if [ ! -d model-conversion/venv ]; then \
+		echo "[ Error ] Virtual environment not found. Run 'make models' first."; \
+		exit 1; \
+	fi
+	@echo "[ Info ] Downloading models for profile: $(PROFILE)"
+	@. model-conversion/venv/bin/activate && \
+	python3 profiles/run_profile.py --profile "$(PROFILE)" --download-only
+
+.PHONY: list-profiles
+list-profiles:
+	@echo "Available Benchmark Profiles"
+	@echo "----------------------------"
+	@for f in profiles/*.yaml; do \
+		if [ -f "$$f" ]; then \
+			name=$$(grep '^name:' "$$f" | head -1 | sed 's/^name: *"\{0,1\}//;s/"\{0,1\} *$$//'); \
+			device=$$(grep 'device:' "$$f" | head -1 | sed 's/.*device: *"\{0,1\}//;s/"\{0,1\} *$$//'); \
+			count=$$(grep -c 'type: "openvino"' "$$f" 2>/dev/null || echo 0); \
+			echo "  $$f"; \
+			echo "    Name: $$name  |  Default device: $$device  |  OpenVINO benchmarks: $$count"; \
+		fi; \
+	done
+
 .PHONY: clean
 clean:
 	@echo "[ Info ] Cleaning results directory (logs & CSV)."
@@ -165,5 +234,6 @@ clean-all: clean
 	@echo "[ Info ] Removing all generated media and model collateral."
 	@rm -rf media-downloader/media
 	@rm -rf model-conversion/source-models model-conversion/datasets model-conversion/models model-conversion/venv
+	@rm -rf model-conversion/profile-models
 	@rm -rf pipelines/
 	@echo "[ Info ] All generated collateral cleared."

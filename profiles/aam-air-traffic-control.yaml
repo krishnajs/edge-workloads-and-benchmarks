@@ -1,0 +1,54 @@
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+# =============================================================================
+# Profile: Air Traffic Control (ATC) / UTM
+# Domain:  Advanced Air Mobility (AAM)
+#
+# Benchmarks for real-time airspace surveillance, aircraft type
+# classification, and dynamic airspace deconfliction.
+# =============================================================================
+
+name: "Air Traffic Control (ATC) / UTM"
+domain: "Advanced Air Mobility"
+description: >
+  Ground-based Air Traffic Control and Urban Traffic Management benchmarks
+  for real-time airspace surveillance, aircraft type classification,
+  and dynamic airspace deconfliction.
+
+settings:
+  device: "CPU"           # Default device for all benchmarks: CPU, GPU, NPU
+  duration: 60            # Benchmark duration in seconds per model
+  hint: "latency"         # Performance hint: latency or throughput
+  nireq: 0                # Inference requests (0 = auto)
+  batch_size: 1           # Batch size
+
+benchmarks:
+  # --- OpenVINO AI Benchmarks (run via benchmark_app) ---
+
+  - name: "Real-time Airspace Surveillance"
+    model: "yolo-v4-tf"
+    type: "openvino"
+    precision: "FP16-INT8"
+    target_latency_ms: 15
+    target_fps: 60
+    rationale: "Real-time airspace surveillance"
+
+  - name: "Aircraft Type Classification"
+    model: "ssd-resnet34-1200-onnx"
+    type: "openvino"
+    precision: "FP16-INT8"
+    target_latency_ms: 30
+    target_fps:
+    rationale: "Aircraft type classification"
+
+  # --- Compute Benchmarks (not run by benchmark_app) ---
+
+  - name: "Conflict Resolution (Dijkstra's)"
+    type: "compute"
+    metric: "compute_time"
+    target_compute_ms: 50
+    parameters:
+      nodes: 500000
+    rationale: "Dynamic airspace deconfliction"
+    note: "Requires separate graph algorithm benchmark (not run by benchmark_app)"

@@ -1,0 +1,70 @@
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+# =============================================================================
+# Profile: Avionics (Onboard Compute)
+# Domain:  Advanced Air Mobility (AAM)
+#
+# Benchmarks for onboard avionics compute including Detect & Avoid (DAA),
+# aircraft/bird classification at range, landing zone obstacle detection,
+# visual-inertial SLAM, and dynamic path planning.
+# =============================================================================
+
+name: "Avionics (Onboard Compute)"
+domain: "Advanced Air Mobility"
+description: >
+  Onboard avionics compute benchmarks targeting real-time Detect & Avoid,
+  aircraft classification, landing zone detection, precision approach SLAM,
+  and collision-free route planning.
+
+settings:
+  device: "CPU"           # Default device for all benchmarks: CPU, GPU, NPU
+  duration: 60            # Benchmark duration in seconds per model
+  hint: "latency"         # Performance hint: latency or throughput
+  nireq: 0                # Inference requests (0 = auto)
+  batch_size: 1           # Batch size
+
+benchmarks:
+  # --- OpenVINO AI Benchmarks (run via benchmark_app) ---
+
+  - name: "DAA Obstacle Detection"
+    model: "yolo-v4-tf"
+    type: "openvino"
+    precision: "FP16-INT8"
+    target_latency_ms: 25
+    target_fps: 40
+    rationale: "Detect & Avoid (DAA) obstacle detection"
+
+  - name: "Aircraft/Bird Classification"
+    model: "ssd-resnet34-1200-onnx"
+    type: "openvino"
+    precision: "FP16-INT8"
+    target_latency_ms: 50
+    target_fps: 25
+    rationale: "Aircraft / bird classification at range"
+
+  - name: "Landing Zone Obstacle Detection"
+    model: "ssd_mobilenet_v2_coco"
+    type: "openvino"
+    precision: "FP16-INT8"
+    target_latency_ms: 15
+    target_fps: 60
+    rationale: "Landing zone obstacle detection"
+
+  # --- Compute Benchmarks (not run by benchmark_app) ---
+
+  - name: "SLAM (Visual-Inertial-LiDAR)"
+    type: "compute"
+    metric: "latency"
+    target_latency_ms: 15
+    rationale: "Precision approach and landing"
+    note: "Requires separate SLAM benchmark suite (not run by benchmark_app)"
+
+  - name: "Path Planning (Dijkstra's)"
+    type: "compute"
+    metric: "compute_time"
+    target_compute_ms: 100
+    parameters:
+      nodes: 100000
+    rationale: "Dynamic collision-free route planning"
+    note: "Requires separate graph algorithm benchmark (not run by benchmark_app)"

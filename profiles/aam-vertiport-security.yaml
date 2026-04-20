@@ -1,0 +1,59 @@
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+# =============================================================================
+# Profile: Vertiport Security
+# Domain:  Advanced Air Mobility (AAM)
+#
+# Benchmarks for vertiport perimeter intrusion detection, person/vehicle
+# classification, credential recognition, and acoustic anomaly detection.
+# =============================================================================
+
+name: "Vertiport Security"
+domain: "Advanced Air Mobility"
+description: >
+  Vertiport physical security benchmarks covering perimeter intrusion
+  detection, person/vehicle classification, credential/badge recognition,
+  acoustic drone incursion detection, and environmental audio surveillance.
+
+settings:
+  device: "CPU"           # Default device for all benchmarks: CPU, GPU, NPU
+  duration: 60            # Benchmark duration in seconds per model
+  hint: "latency"         # Performance hint: latency or throughput
+  nireq: 0                # Inference requests (0 = auto)
+  batch_size: 1           # Batch size
+
+benchmarks:
+  # --- OpenVINO AI Benchmarks (run via benchmark_app) ---
+
+  - name: "Perimeter Intrusion Detection"
+    model: "yolo-v4-tf"
+    type: "openvino"
+    precision: "FP16-INT8"
+    target_latency_ms: 30
+    target_fps: 40
+    rationale: "Perimeter intrusion detection"
+
+  - name: "Person/Vehicle Classification"
+    model: "ssd_mobilenet_v2_coco"
+    type: "openvino"
+    precision: "FP16-INT8"
+    target_latency_ms: 20
+    target_fps: 50
+    rationale: "Person / vehicle classification"
+
+  - name: "Credential/Badge Recognition"
+    model: "mobilenet-v2"
+    type: "openvino"
+    precision: "FP16-INT8"
+    target_latency_ms: 15
+    target_fps:
+    rationale: "Credential / badge recognition"
+
+  - name: "Acoustic Anomaly Detection"
+    model: "aclnet"
+    type: "openvino"
+    precision: "FP16-INT8"
+    target_latency_ms: 60
+    target_fps:
+    rationale: "Environmental audio surveillance and drone incursion detection"
